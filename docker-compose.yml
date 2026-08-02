@@ -1,0 +1,60 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgis/postgis:15-3.3
+    container_name: movebuddy_postgres
+    environment:
+      POSTGRES_USER: movebuddy
+      POSTGRES_PASSWORD: movebuddy_secret
+      POSTGRES_DB: movebuddy
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U movebuddy']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: movebuddy_redis
+    ports:
+      - '6379:6379'
+    command: redis-server --requirepass redis_secret
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: movebuddy_backend
+    ports:
+      - '3001:3001'
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://movebuddy:movebuddy_secret@postgres:5432/movebuddy
+      REDIS_URL: redis://:redis_secret@redis:6379
+      NODE_ENV: production
+    env_file:
+      - ./.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/logs:/app/logs
+
+volumes:
+  postgres_data:
+  redis_data:

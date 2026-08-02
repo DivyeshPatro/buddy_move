@@ -1,0 +1,565 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  GUEST
+  HOST
+  ADMIN
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  FINANCE
+  SUPPORT
+  OPERATIONS
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum RideStatus {
+  CREATED
+  MATCHED
+  REQUESTED
+  ACCEPTED
+  REJECTED
+  ARRIVED_AT_PICKUP
+  PICKUP_VERIFIED
+  IN_PROGRESS
+  COMPLETED
+  EXPIRED
+  CANCELLED
+  EMERGENCY_STOP
+}
+
+enum RequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  COMPLETED
+}
+
+enum VehicleType {
+  CAR
+  BIKE
+  SCOOTER
+  AUTO
+}
+
+enum PlanType {
+  PLAN_7D
+  PLAN_15D
+  PLAN_1M
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum CommuteDirection {
+  FORWARD
+  RETURN
+}
+
+enum TripStatus {
+  SCHEDULED
+  PICKUP_CONFIRMED
+  IN_PROGRESS
+  AWAITING_CONFIRMATION
+  COMPLETED
+  CANCELLED
+}
+
+enum MatchStatus {
+  ACTIVE
+  CANCELLED
+  COMPLETED
+}
+
+enum PaymentStatus {
+  CREATED
+  SUCCESS
+  FAILED
+}
+
+enum TicketStatus {
+  OPEN
+  RESOLVED
+  APPROVED
+  REJECTED
+}
+
+enum NotificationChannel {
+  PUSH
+  SMS
+  EMAIL
+}
+
+enum VerificationStatus {
+  NONE
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+model User {
+  id                  String             @id @default(uuid())
+  name                String
+  email               String             @unique
+  phone               String?
+  role                UserRole           @default(GUEST)
+  gender              Gender             @default(OTHER)
+  adminRole           AdminRole?
+  companyOrCollege    String?
+  isIdVerified        Boolean            @default(false)
+  isCompanyVerified   Boolean            @default(false)
+  avatarUrl           String             @default("")
+  buddyScore          Int                @default(50)
+  rating              Float              @default(0)
+  reliabilityScore    Int                @default(50)
+  verificationStatus  VerificationStatus @default(NONE)
+  licenceNumber       String?
+  aadhaarNumber       String?
+  selfieImage         String?
+  licenceImageUrl     String?
+  aadhaarImageUrl     String?
+  vehicleRcNumber     String?
+  vehicleRcImageUrl   String?
+  verificationSubmittedAt DateTime?
+  bio                 String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  deletedAt           DateTime?
+
+  subscriptions Subscription[]
+  payments      Payment[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  chatMessages  ChatMessage[]
+  supportTickets SupportTicket[]
+  guestCredits  GuestCredit[]
+
+  @@index([email])
+  @@index([phone])
+  @@index([role])
+  @@index([deletedAt])
+  @@index([reliabilityScore])
+  @@map("users")
+}
+
+model Vehicle {
+  id                 String      @id @default(uuid())
+  hostId             String
+  registrationNumber String      @unique
+  type               VehicleType @default(BIKE)
+  capacity           Int         @default(1)
+  model              String      @default("")
+  color              String      @default("")
+  verificationStatus String      @default("PENDING")
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  deletedAt          DateTime?
+
+  @@index([hostId])
+  @@map("vehicles")
+}
+
+model Ride {
+  id               String    @id @default(uuid())
+  hostId           String
+  hostName         String
+  hostAvatar       String    @default("")
+  hostRating       Float     @default(0)
+  hostBuddyScore   Int       @default(0)
+  origin           String
+  destination      String
+  departureDate    String
+  departureTime    String
+  availableSeats   Int       @default(1)
+  totalSeats       Int       @default(1)
+  vehicleType      String    @default("bike")
+  vehicleModel     String    @default("")
+  vehicleNumber    String    @default("")
+  perKmRate        Float     @default(0)
+  distanceKm       Float     @default(0)
+  totalCost        Float     @default(0)
+  genderRestriction String   @default("none")
+  isRecurring      Boolean   @default(false)
+  recurrenceDays   Json      @default("[]")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  requests RideRequest[]
+
+  @@index([hostId])
+  @@index([origin, destination])
+  @@map("rides")
+}
+
+model RideRequest {
+  id               String        @id @default(uuid())
+  rideId           String
+  guestId          String
+  guestName        String
+  guestAvatar      String        @default("")
+  guestRating      Float         @default(0)
+  status           RequestStatus @default(PENDING)
+  requestDate      String
+  verificationCode String
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  ride Ride @relation(fields: [rideId], references: [id])
+
+  @@index([rideId])
+  @@index([guestId])
+  @@map("ride_requests")
+}
+
+model Subscription {
+  id              String             @id @default(uuid())
+  userId          String
+  planName        String
+  durationDays    Int                @default(0)
+  startDate       String
+  endDate         String
+  amountPaid      Float              @default(0)
+  planPrice       Float?
+  status          SubscriptionStatus @default(ACTIVE)
+  role            String             @default("guest")
+  direction       CommuteDirection?
+  origin          String?
+  destination     String?
+  departureTime   String?
+  forwardTime     String?
+  returnTime      String?
+  distanceKm      Float?
+  matchId         String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  deletedAt       DateTime?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([endDate])
+  @@index([userId, status, role])
+  @@index([status, role, direction])
+  @@map("subscriptions")
+}
+
+model Match {
+  id                 String      @id @default(uuid())
+  guestId            String
+  guestName          String
+  hostId             String
+  hostName           String
+  guestSubscriptionId String
+  hostSubscriptionId String
+  direction          CommuteDirection
+  status             MatchStatus @default(ACTIVE)
+  proximityTierM     Int         @default(500)
+  score              Int         @default(0)
+  pickupDistanceM    Int         @default(0)
+  dropDistanceM      Int         @default(0)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  @@index([guestId])
+  @@index([hostId])
+  @@index([status])
+  @@index([guestSubscriptionId])
+  @@index([hostSubscriptionId])
+  @@index([guestId, status])
+  @@index([hostId, status])
+  @@index([direction, status])
+  @@map("matches")
+}
+
+model Trip {
+  id                 String     @id @default(uuid())
+  matchId            String
+  hostId             String
+  guestId            String
+  hostName           String
+  guestName          String
+  direction          CommuteDirection
+  date               String
+  status             TripStatus @default(SCHEDULED)
+  verificationCode   String
+  pickupMethod       String?
+  pickupConfirmedAt  DateTime?
+  pickupGeoLat       Float?
+  pickupGeoLng       Float?
+  startedAt          DateTime?
+  beginRideAt        DateTime?
+  hostCompletedAt    DateTime?
+  guestConfirmedAt   DateTime?
+  completedAt        DateTime?
+  cancelledAt        DateTime?
+  cancelReason       String?
+  origin             String     @default("")
+  destination        String     @default("")
+  distanceKm         Float      @default(0)
+  reservedAmount     Float      @default(0)
+  creditedAmount     Float?
+  hostLastPingLat    Float?
+  hostLastPingLng    Float?
+  hostLastPingAt     DateTime?
+  guestLastPingLat   Float?
+  guestLastPingLng   Float?
+  guestLastPingAt    DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  @@index([matchId])
+  @@index([hostId])
+  @@index([guestId])
+  @@index([date])
+  @@index([status])
+  @@index([hostId, status])
+  @@index([guestId, status])
+  @@map("trips")
+}
+
+model HostActivityDay {
+  id                String   @id @default(uuid())
+  hostId            String
+  subscriptionId    String
+  date              String
+  rideCompleted     Boolean  @default(false)
+  matchedGuestCount Int      @default(0)
+  eligibleForPayout Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([hostId, date])
+  @@index([subscriptionId])
+  @@map("host_activity_days")
+}
+
+model Payment {
+  id                String        @id @default(uuid())
+  userId            String
+  provider          String        @default("razorpay")
+  providerOrderId   String?
+  providerPaymentId String?
+  amount            Float         @default(0)
+  currency          String        @default("INR")
+  status            PaymentStatus @default(CREATED)
+  subscriptionId    String?
+  notes             Json?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([providerOrderId])
+  @@index([status])
+  @@index([subscriptionId])
+  @@index([userId, status])
+  @@map("payments")
+}
+
+model Wallet {
+  userId    String   @id
+  credits   Float    @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id          String   @id @default(uuid())
+  walletId    String
+  amount      Float
+  type        String
+  description String
+  timestamp   DateTime @default(now())
+
+  @@index([walletId])
+  @@index([walletId, timestamp])
+  @@map("wallet_transactions")
+}
+
+model ChatMessage {
+  id         String   @id @default(uuid())
+  senderId   String
+  senderName String   @default("")
+  receiverId String
+  text       String
+  timestamp  DateTime @default(now())
+  rideId     String?
+
+  sender User @relation(fields: [senderId], references: [id])
+
+  @@index([senderId, receiverId])
+  @@index([receiverId, timestamp])
+  @@index([rideId])
+  @@map("chat_messages")
+}
+
+model SupportTicket {
+  id            String       @id @default(uuid())
+  userId        String
+  subject       String       @default("")
+  status        TicketStatus @default(OPEN)
+  ticketType    String?
+  category      String?
+  description   String?
+  screenshotUrl String?
+  guestId       String?
+  hostId        String?
+  rideId        String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([userId, status])
+  @@map("support_tickets")
+}
+
+model Notification {
+  id        String             @id @default(uuid())
+  userId    String
+  title     String
+  body      String
+  type      String             @default("system")
+  channel   NotificationChannel @default(PUSH)
+  read      Boolean            @default(false)
+  meta      Json?
+  createdAt DateTime           @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([userId, read, createdAt])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  actorId   String?
+  action    String
+  targetId  String?
+  details   Json?
+  timestamp DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([actorId])
+  @@map("audit_logs")
+}
+
+model AppConfig {
+  key  String @id
+  data Json
+
+  @@map("app_config")
+}
+
+model GuestCredit {
+  id                      String   @id @default(uuid())
+  userId                  String
+  creditType              String
+  amount                  Float    @default(0)
+  sourceSubscriptionId    String
+  appliedToSubscriptionId String?
+  createdAt               DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("guest_credits")
+}
+
+model PromoCode {
+  id              String   @id @default(uuid())
+  code            String   @unique
+  discountPercent Float    @default(0)
+  usageLimit      Int      @default(0)
+  usedCount       Int      @default(0)
+  expiryDate      String
+  isActive        Boolean  @default(true)
+  description     String   @default("")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("promo_codes")
+}
+
+model Voucher {
+  id              String   @id @default(uuid())
+  code            String   @unique
+  amount          Float    @default(0)
+  usageLimit      Int      @default(1)
+  redemptionCount Int      @default(0)
+  redeemedBy      Json     @default("[]")
+  expiryDate      String
+  isActive        Boolean  @default(true)
+  description     String   @default("")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("vouchers")
+}
+
+model CmsPage {
+  id        String   @id @default(uuid())
+  slug      String   @unique
+  title     String
+  content   String
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@map("cms_pages")
+}
+
+model SubscriptionPlan {
+  id           String   @id @default(uuid())
+  role         String
+  planType     PlanType
+  name         String
+  durationDays Int
+  multiplier   Float?
+  basePrice    Float?
+  isActive     Boolean  @default(true)
+  badge        String   @default("")
+  features     Json     @default("[]")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("subscription_plans")
+}
+
+model NotificationTemplate {
+  id        String             @id @default(uuid())
+  name      String
+  title     String
+  body      String
+  channel   NotificationChannel @default(PUSH)
+  isActive  Boolean            @default(true)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  @@map("notification_templates")
+}

@@ -1,0 +1,672 @@
+{
+  "users": [
+    {
+      "id": "usr_host1",
+      "name": "Saurav Sharma",
+      "email": "saurav.sharma@techcorp.com",
+      "phone": "+919876543210",
+      "role": "host",
+      "gender": "male",
+      "companyOrCollege": "TechCorp Global (Sector 5)",
+      "isIdVerified": true,
+      "isCompanyVerified": true,
+      "avatarUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
+      "buddyScore": 94,
+      "rating": 4.8,
+      "bio": "Software Engineer at TechCorp. Commuting daily from Salt Lake Salt Lake bypass to New Town Sector 5. Love rock music!"
+    },
+    {
+      "id": "usr_host2",
+      "name": "Ananya Roy",
+      "email": "ananya.roy@medicalcollege.edu",
+      "phone": "+919876543211",
+      "role": "host",
+      "gender": "female",
+      "companyOrCollege": "Kolkata Medical College",
+      "isIdVerified": false,
+      "isCompanyVerified": true,
+      "avatarUrl": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80",
+      "buddyScore": 98,
+      "rating": 4.9,
+      "bio": "Final year Medical Student. Commuting mostly Monday-Friday mornings. Safety and punctuality are my rules."
+    },
+    {
+      "id": "usr_guest1",
+      "name": "Rahul Verma",
+      "email": "rahul.verma@collegestudent.edu",
+      "phone": "+919111222333",
+      "role": "guest",
+      "gender": "male",
+      "companyOrCollege": "St. Xavier's College",
+      "isIdVerified": true,
+      "isCompanyVerified": false,
+      "avatarUrl": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80",
+      "buddyScore": 88,
+      "rating": 4.5,
+      "bio": "Economics minor. Looking for standard morning pool rides."
+    },
+    {
+      "id": "usr_admin",
+      "name": "Move Buddy Admin",
+      "email": "admin@movebuddy.com",
+      "phone": "+910000000000",
+      "role": "admin",
+      "adminRole": "SUPER_ADMIN",
+      "gender": "other",
+      "isIdVerified": true,
+      "isCompanyVerified": true,
+      "avatarUrl": "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&w=150&q=80",
+      "buddyScore": 100,
+      "rating": 5
+    },
+    {
+      "id": "usr_support",
+      "name": "Priya Support",
+      "email": "support@movebuddy.com",
+      "phone": "+910000000001",
+      "role": "admin",
+      "adminRole": "SUPPORT",
+      "gender": "female",
+      "isIdVerified": true,
+      "isCompanyVerified": true,
+      "avatarUrl": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80",
+      "buddyScore": 90,
+      "rating": 4.8
+    },
+    {
+      "id": "usr_finance",
+      "name": "Raj Finance",
+      "email": "finance@movebuddy.com",
+      "phone": "+910000000002",
+      "role": "admin",
+      "adminRole": "FINANCE",
+      "gender": "male",
+      "isIdVerified": true,
+      "isCompanyVerified": true,
+      "avatarUrl": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80",
+      "buddyScore": 88,
+      "rating": 4.7
+    },
+    {
+      "id": "usr_ops",
+      "name": "Arjun Operations",
+      "email": "ops@movebuddy.com",
+      "phone": "+910000000003",
+      "role": "admin",
+      "adminRole": "OPERATIONS",
+      "gender": "male",
+      "isIdVerified": true,
+      "isCompanyVerified": true,
+      "avatarUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
+      "buddyScore": 85,
+      "rating": 4.6
+    },
+    {
+      "id": "usr_cfd5488",
+      "name": "sradha patro",
+      "email": "sradha65s65@gmail.com",
+      "phone": "+916371591539",
+      "role": "guest",
+      "gender": "male",
+      "companyOrCollege": "Truecaller Verified",
+      "isIdVerified": true,
+      "isCompanyVerified": false,
+      "avatarUrl": "https://ui-avatars.com/api/?name=sradha%20patro&background=0087FF&color=FFF&bold=true&size=150",
+      "buddyScore": 75,
+      "rating": 5,
+      "reliabilityScore": 85,
+      "createdAt": "2026-07-30T18:41:45.131Z"
+    }
+  ],
+  "rides": [
+    {
+      "id": "rd_1",
+      "hostId": "usr_host1",
+      "hostName": "Saurav Sharma",
+      "hostAvatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
+      "hostRating": 4.8,
+      "hostBuddyScore": 94,
+      "origin": "Ultadanga Crossing, Kolkata",
+      "destination": "New Town DLF IT Park, Kolkata",
+      "departureDate": "2026-06-14",
+      "departureTime": "09:00",
+      "availableSeats": 1,
+      "totalSeats": 1,
+      "vehicleType": "bike",
+      "vehicleModel": "Yamaha FZ-S V4",
+      "vehicleNumber": "WB-02-AL-5544",
+      "perKmRate": 8,
+      "distanceKm": 12.5,
+      "totalCost": 100,
+      "genderRestriction": "none",
+      "isRecurring": true,
+      "recurrenceDays": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri"
+      ]
+    },
+    {
+      "id": "rd_2",
+      "hostId": "usr_host2",
+      "hostName": "Ananya Roy",
+      "hostAvatar": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80",
+      "hostRating": 4.9,
+      "hostBuddyScore": 98,
+      "origin": "Salt Lake Sector 1, Kolkata",
+      "destination": "College Street Medical Campus, Kolkata",
+      "departureDate": "2026-06-14",
+      "departureTime": "07:30",
+      "availableSeats": 1,
+      "totalSeats": 2,
+      "vehicleType": "bike",
+      "vehicleModel": "Royal Enfield Meteor",
+      "vehicleNumber": "WB-06-S-7890",
+      "perKmRate": 5,
+      "distanceKm": 8,
+      "totalCost": 40,
+      "genderRestriction": "women-only",
+      "isRecurring": true,
+      "recurrenceDays": [
+        "Mon",
+        "Wed",
+        "Fri"
+      ]
+    }
+  ],
+  "requests": [
+    {
+      "id": "req_1",
+      "rideId": "rd_1",
+      "guestId": "usr_guest1",
+      "guestName": "Rahul Verma",
+      "guestAvatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80",
+      "guestRating": 4.5,
+      "status": "pending",
+      "requestDate": "2026-06-13",
+      "verificationCode": "BUDDY-9812"
+    }
+  ],
+  "subscriptions": [
+    {
+      "id": "sub_1",
+      "userId": "usr_guest1",
+      "planName": "15 Day Plan",
+      "durationDays": 15,
+      "startDate": "2026-06-10",
+      "endDate": "2026-06-25",
+      "amountPaid": 450,
+      "status": "expired"
+    },
+    {
+      "id": "sub_3c80370",
+      "userId": "usr_cfd5488",
+      "planName": "Monthly Plan",
+      "durationDays": 22,
+      "startDate": "2026-07-30",
+      "endDate": "2026-08-21",
+      "amountPaid": 890,
+      "planPrice": 990,
+      "status": "active",
+      "role": "guest",
+      "origin": "42, 5th Cross Road, Koramangala 1st Block, Kormangala East, Bengaluru South City Corporation, Bengaluru, Bangalore South, Bengaluru Urban, Karnataka, 560034, India",
+      "destination": "Electronic City Flyover, Singasandra, Bengaluru South City Corporation, Bengaluru, Bangalore South, Bengaluru Urban, Karnataka, 560068, India",
+      "distanceKm": 8,
+      "matchId": null,
+      "originGeo": {
+        "lat": 12.9292616,
+        "lng": 77.6300758
+      },
+      "pickupRadiusM": 300,
+      "dropRadiusM": 300,
+      "direction": "forward",
+      "departureTime": "09:00"
+    }
+  ],
+  "wallets": {
+    "usr_host1": {
+      "userId": "usr_host1",
+      "credits": 240,
+      "history": [
+        {
+          "id": "tx_1",
+          "amount": 120,
+          "type": "credit",
+          "description": "Completed ride pool with Animesh",
+          "timestamp": "2026-06-11T18:00:00Z"
+        },
+        {
+          "id": "tx_2",
+          "amount": 120,
+          "type": "credit",
+          "description": "Completed ride pool with Shreya",
+          "timestamp": "2026-06-12T18:30:00Z"
+        }
+      ]
+    },
+    "usr_host2": {
+      "userId": "usr_host2",
+      "credits": 160,
+      "history": [
+        {
+          "id": "tx_3",
+          "amount": 80,
+          "type": "credit",
+          "description": "Ride pool split credit from Sanya",
+          "timestamp": "2026-06-10T09:00:00Z"
+        },
+        {
+          "id": "tx_4",
+          "amount": 80,
+          "type": "credit",
+          "description": "Ride pool split credit from Tanya",
+          "timestamp": "2026-06-12T09:15:00Z"
+        }
+      ]
+    },
+    "usr_guest1": {
+      "userId": "usr_guest1",
+      "credits": 500,
+      "history": [
+        {
+          "id": "tx_5",
+          "amount": 500,
+          "type": "credit",
+          "description": "Added funds via Razorpay",
+          "timestamp": "2026-06-13T08:15:00Z"
+        }
+      ]
+    },
+    "usr_cfd5488": {
+      "userId": "usr_cfd5488",
+      "credits": 0,
+      "history": [
+        {
+          "id": "tx_sub_dd70abc",
+          "amount": 890,
+          "type": "debit",
+          "description": "Commute Pass: Monthly Plan (forward) [pay_904b4645]",
+          "timestamp": "2026-07-30T18:45:41.855Z"
+        }
+      ]
+    }
+  },
+  "chatMessages": [
+    {
+      "id": "msg_1",
+      "senderId": "usr_guest1",
+      "senderName": "Rahul Verma",
+      "receiverId": "usr_host1",
+      "text": "Hello Saurav, can you pick me up outside the salt lake gate 2 metro?",
+      "timestamp": "2026-06-13T09:30:00-07:00",
+      "rideId": "rd_1"
+    },
+    {
+      "id": "msg_2",
+      "senderId": "usr_host1",
+      "senderName": "Saurav Sharma",
+      "receiverId": "usr_guest1",
+      "text": "Sure Rahul! Be there exactly at 09:05 AM. See you!",
+      "timestamp": "2026-06-13T09:32:00-07:00",
+      "rideId": "rd_1"
+    }
+  ],
+  "tickets": [
+    {
+      "id": "tk_1",
+      "userId": "usr_guest1",
+      "subject": "Subscription payment discrepancy",
+      "status": "resolved",
+      "createdAt": "2026-06-12T10:00:00Z",
+      "messages": [
+        {
+          "sender": "Rahul Verma",
+          "text": "I bought the pass but it was shows pending activation for 5 mins.",
+          "time": "10:00 AM"
+        },
+        {
+          "sender": "System",
+          "text": "Your plan was successfully processed. Valid up to 25th June.",
+          "time": "10:05 AM"
+        }
+      ]
+    }
+  ],
+  "systemSettings": {
+    "logoUrl": "https://images.unsplash.com/photo-1549611016-3a70d82b5040?auto=format&fit=crop&w=150&q=80",
+    "bannerText": "â˜” Monsoon Special: Get extra 10% cashbacks on recurring campus commute passes!",
+    "perKmRate": 8,
+    "allowWomenOnlyMode": true
+  },
+  "pricingConfig": {
+    "guestBaseKmLimit": 5,
+    "guestBasePrice": 30,
+    "guestIncrementPerKm": 5,
+    "guest7dWorkingDays": 5,
+    "guest15dWorkingDays": 11,
+    "guestMonthlyWorkingDays": 22,
+    "guest7dMultiplier": 1,
+    "guest15dMultiplier": 1,
+    "guestMonthlyMultiplier": 1,
+    "hostUpto5kmSlab": 49,
+    "hostAbove5kmSlab": 99,
+    "hostRatePerKm": 3.5,
+    "welcomeCreditFlat": 100,
+    "welcomeCreditPercent": 10,
+    "welcomeCreditCap": 100,
+    "upgradeIncentivePercent": 10,
+    "upgradeIncentiveCap": 100,
+    "loyaltyCreditPercent": 3,
+    "loyaltyCreditMin": 10,
+    "loyaltyCreditMax": 40
+  },
+  "subscriptionPlans": [
+    {
+      "id": "plan_g7",
+      "role": "guest",
+      "planType": "7d",
+      "name": "7 Day Pass",
+      "durationDays": 7,
+      "multiplier": 1,
+      "isActive": true,
+      "badge": "",
+      "features": [
+        "1 route",
+        "Morning commute",
+        "Basic support"
+      ]
+    },
+    {
+      "id": "plan_g15",
+      "role": "guest",
+      "planType": "15d",
+      "name": "15 Day Pass",
+      "durationDays": 15,
+      "multiplier": 2.2,
+      "isActive": true,
+      "badge": "Popular",
+      "features": [
+        "1 route",
+        "Morning & Evening",
+        "Priority support",
+        "Ride guarantee"
+      ]
+    },
+    {
+      "id": "plan_g1m",
+      "role": "guest",
+      "planType": "1m",
+      "name": "Monthly Pass",
+      "durationDays": 30,
+      "multiplier": 4.4,
+      "isActive": true,
+      "badge": "Best Value",
+      "features": [
+        "1 route",
+        "All hours",
+        "24/7 support",
+        "Loyalty cashback",
+        "Partner lock"
+      ]
+    },
+    {
+      "id": "plan_h7",
+      "role": "host",
+      "planType": "7d",
+      "name": "Host 7 Day",
+      "durationDays": 7,
+      "isActive": true,
+      "features": [
+        "List 1 ride",
+        "Basic visibility"
+      ]
+    },
+    {
+      "id": "plan_h15",
+      "role": "host",
+      "planType": "15d",
+      "name": "Host 15 Day",
+      "durationDays": 15,
+      "isActive": true,
+      "badge": "Popular",
+      "features": [
+        "List 1 ride",
+        "Boosted visibility",
+        "Analytics"
+      ]
+    },
+    {
+      "id": "plan_h1m",
+      "role": "host",
+      "planType": "1m",
+      "name": "Host Monthly",
+      "durationDays": 30,
+      "isActive": true,
+      "badge": "Best Value",
+      "features": [
+        "List 1 ride",
+        "Top visibility",
+        "Full analytics",
+        "Priority payout"
+      ]
+    }
+  ],
+  "themeConfig": {
+    "primaryColor": "#7C3AED",
+    "secondaryColor": "#374151",
+    "accentColor": "#F59E0B",
+    "fontFamily": "Inter",
+    "darkMode": false,
+    "buttonStyle": "rounded",
+    "cardStyle": "shadow"
+  },
+  "brandingConfig": {
+    "appName": "Move Buddy",
+    "logoUrl": "https://images.unsplash.com/photo-1549611016-3a70d82b5040?auto=format&fit=crop&w=150&q=80",
+    "faviconUrl": "",
+    "supportEmail": "support@movebuddy.com",
+    "supportPhone": "+91 98765 00000",
+    "tagline": "Commute Smarter, Together"
+  },
+  "featureFlags": {
+    "walletEnabled": true,
+    "subscriptionsEnabled": true,
+    "referralEnabled": true,
+    "sosEnabled": true,
+    "premiumEnabled": false,
+    "adsEnabled": false,
+    "liveTrackingEnabled": true,
+    "chatEnabled": true,
+    "promoCodesEnabled": true
+  },
+  "cmsPages": [
+    {
+      "id": "cms_privacy",
+      "slug": "privacy",
+      "title": "Privacy Policy",
+      "content": "# Privacy Policy\n\nLast updated: June 2026\n\nThis privacy policy explains how Move Buddy collects, uses, and protects your personal information.\n\n## What We Collect\n- Name, email, phone number\n- Location data for ride matching\n- Payment information (processed securely)\n\n## How We Use It\n- Matching riders with hosts\n- Processing payments\n- Sending ride notifications\n\n## Your Rights\nYou can request deletion of your data at any time by contacting support@movebuddy.com",
+      "updatedAt": "2026-06-15T00:00:00Z"
+    },
+    {
+      "id": "cms_terms",
+      "slug": "terms",
+      "title": "Terms of Service",
+      "content": "# Terms of Service\n\nBy using Move Buddy, you agree to these terms.\n\n## Eligibility\nYou must be 18+ to use this platform.\n\n## User Responsibilities\n- Provide accurate information\n- Treat co-commuters with respect\n- Follow traffic laws\n\n## Prohibited Activities\n- Misuse of emergency SOS\n- Fraudulent payment methods\n- Creating fake accounts",
+      "updatedAt": "2026-06-15T00:00:00Z"
+    },
+    {
+      "id": "cms_refund",
+      "slug": "refund",
+      "title": "Refund Policy",
+      "content": "# Refund Policy\n\n## Subscription Refunds\nSubscriptions are refundable within 24 hours of purchase if no rides have been booked.\n\n## Ride Cancellations\nIf a host cancels, guests receive a full wallet credit.\n\n## Process\nRefunds are processed within 5-7 business days to your original payment method.",
+      "updatedAt": "2026-06-15T00:00:00Z"
+    },
+    {
+      "id": "cms_faq",
+      "slug": "faq",
+      "title": "FAQ",
+      "content": "# Frequently Asked Questions\n\n**Q: How do I book a ride?**\nA: Sign up as a Guest, search for rides on your route, and subscribe to your preferred host.\n\n**Q: How does pricing work?**\nA: Guest subscriptions are distance-based. 0-5km = â‚¹30/route. Beyond 5km = â‚¹30 + â‚¹5 per extra km.\n\n**Q: Can I change my host?**\nA: Yes, once per subscription period with admin approval.\n\n**Q: What is the buddy score?**\nA: A trust metric based on ride history, reviews, and punctuality.",
+      "updatedAt": "2026-06-15T00:00:00Z"
+    },
+    {
+      "id": "cms_about",
+      "slug": "about",
+      "title": "About Us",
+      "content": "# About Move Buddy\n\nMove Buddy is India's smart daily commute platform connecting office workers and college students with trusted co-commuters.\n\n## Our Mission\nMake daily commuting affordable, safe, and social.\n\n## Founded\n2026 in Kolkata, India.\n\n## Contact\nEmail: hello@movebuddy.com\nPhone: +91 98765 00000",
+      "updatedAt": "2026-06-15T00:00:00Z"
+    }
+  ],
+  "promoCodes": [
+    {
+      "id": "promo_1",
+      "code": "WELCOME50",
+      "discountPercent": 50,
+      "usageLimit": 1000,
+      "usedCount": 234,
+      "expiryDate": "2026-12-31",
+      "isActive": true,
+      "createdAt": "2026-01-01T00:00:00Z",
+      "description": "50% off for new users on first subscription"
+    },
+    {
+      "id": "promo_2",
+      "code": "FIRSTRIDE",
+      "discountPercent": 100,
+      "usageLimit": 500,
+      "usedCount": 112,
+      "expiryDate": "2026-09-30",
+      "isActive": true,
+      "createdAt": "2026-01-01T00:00:00Z",
+      "description": "Free first 7-day pass"
+    },
+    {
+      "id": "promo_3",
+      "code": "COLLEGE25",
+      "discountPercent": 25,
+      "usageLimit": 5000,
+      "usedCount": 890,
+      "expiryDate": "2026-12-31",
+      "isActive": true,
+      "createdAt": "2026-01-01T00:00:00Z",
+      "description": "25% off for verified college students"
+    }
+  ],
+  "auditLogs": [],
+  "notificationTemplates": [
+    {
+      "id": "notif_1",
+      "name": "Ride Reminder",
+      "title": "Your ride is tomorrow!",
+      "body": "Don't forget your scheduled commute with {{hostName}} at {{time}}. Be ready 5 mins early!",
+      "channel": "push",
+      "isActive": true
+    },
+    {
+      "id": "notif_2",
+      "name": "Payment Success",
+      "title": "Payment Confirmed âœ“",
+      "body": "Your {{planName}} subscription is now active. Happy commuting! Your first pickup is on {{date}}.",
+      "channel": "push",
+      "isActive": true
+    },
+    {
+      "id": "notif_3",
+      "name": "Subscription Expiry",
+      "title": "Subscription Expiring Soon",
+      "body": "Your subscription expires in {{days}} days. Renew now to lock in your commute partner.",
+      "channel": "push",
+      "isActive": true
+    },
+    {
+      "id": "notif_4",
+      "name": "Welcome Message",
+      "title": "Welcome to Move Buddy!",
+      "body": "Hi {{name}}! Start your smart commute journey today. Search for rides near you and subscribe to your first host.",
+      "channel": "email",
+      "isActive": true
+    },
+    {
+      "id": "notif_5",
+      "name": "Emergency Alert",
+      "title": "SOS Alert Triggered",
+      "body": "User {{userName}} has triggered an emergency alert at {{location}}. Please respond immediately.",
+      "channel": "sms",
+      "isActive": true
+    }
+  ],
+  "guestCredits": [],
+  "userStatus": {},
+  "matches": [],
+  "hostActivityDays": [],
+  "payments": [
+    {
+      "id": "pay_904b4645",
+      "userId": "usr_cfd5488",
+      "provider": "razorpay",
+      "providerOrderId": "order_dev_cfa073f2d8",
+      "amount": 890,
+      "currency": "INR",
+      "status": "success",
+      "notes": {
+        "planName": "Monthly Plan",
+        "role": "guest",
+        "distanceKm": 8
+      },
+      "createdAt": "2026-07-30T18:45:41.695Z",
+      "providerPaymentId": "pay_dev_1785437142189",
+      "subscriptionId": "sub_3c80370"
+    },
+    {
+      "id": "pay_5e441a8e",
+      "userId": "usr_host1",
+      "provider": "razorpay",
+      "providerOrderId": "order_dev_eec7eb90b2",
+      "amount": 175,
+      "currency": "INR",
+      "status": "created",
+      "notes": {
+        "planName": "7-Day Plan",
+        "role": "guest",
+        "distanceKm": 10
+      },
+      "createdAt": "2026-07-30T18:56:53.805Z"
+    }
+  ],
+  "notifications": [
+    {
+      "id": "ntf_573c8e80",
+      "userId": "usr_cfd5488",
+      "title": "Subscription active",
+      "body": "Your Monthly Plan commute pass is now active until 2026-08-21.",
+      "type": "subscription",
+      "read": false,
+      "createdAt": "2026-07-30T18:45:44.468Z",
+      "meta": {
+        "subscriptionId": "sub_3c80370",
+        "planName": "Monthly Plan"
+      }
+    }
+  ],
+  "vouchers": [
+    {
+      "id": "vch_welcome",
+      "code": "WELCOME100",
+      "amount": 100,
+      "usageLimit": 1000,
+      "redeemedBy": [],
+      "redemptionCount": 0,
+      "expiryDate": "2026-12-31",
+      "isActive": true,
+      "description": "â‚¹100 welcome credit for new commuters",
+      "createdAt": "2026-01-01T00:00:00Z"
+    }
+  ],
+  "trips": [],
+  "tripValidationConfig": {
+    "maxDestinationDriftMeters": 1500,
+    "minimumRideDurationSeconds": 60,
+    "allowManualOverride": false
+  }
+}

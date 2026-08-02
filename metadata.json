@@ -1,0 +1,6 @@
+{
+  "name": "Move Buddy",
+  "description": "An AI-powered ride-sharing and commute management platform optimized for recurring office and college commuting with dual Guest/Host modes, smart route matching, subscription plans, and an AI buddy companion.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

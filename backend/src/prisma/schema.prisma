@@ -1,0 +1,630 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+
+// ── ENUMS ──────────────────────────────────────────────────────────
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+  SUPPORT
+  FINANCE
+  OPERATIONS
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  FINANCE
+  SUPPORT
+  OPERATIONS
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum RideStatus {
+  CREATED
+  MATCHED
+  REQUESTED
+  ACCEPTED
+  REJECTED
+  ARRIVED_AT_PICKUP
+  PICKUP_VERIFIED
+  IN_PROGRESS
+  EMERGENCY_STOP
+  COMPLETED
+  CANCELLED
+}
+
+enum RequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+  COMPLETED
+}
+
+enum VehicleType {
+  BIKE
+  CAR
+  AUTO
+}
+
+enum PlanType {
+  PLAN_7D
+  PLAN_15D
+  PLAN_1M
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  PAUSED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum PaymentProvider {
+  RAZORPAY
+  PHONEPE
+  WALLET
+}
+
+enum TransactionType {
+  CREDIT
+  DEBIT
+  REFUND
+  REFERRAL_REWARD
+  LOYALTY_CASHBACK
+  PROMO_DISCOUNT
+  ADMIN_CREDIT
+  ADMIN_DEDUCT
+}
+
+enum KycStatus {
+  NOT_SUBMITTED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum NotificationChannel {
+  PUSH
+  SMS
+  EMAIL
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+// ── USERS ─────────────────────────────────────────────────────────
+
+model User {
+  id                String    @id @default(uuid())
+  name              String
+  email             String    @unique
+  phone             String    @unique
+  role              UserRole  @default(USER)
+  adminRole         AdminRole?
+  gender            Gender
+  isActive          Boolean   @default(true)
+  isBanned          Boolean   @default(false)
+  buddyScore        Int       @default(80)
+  rating            Decimal   @default(4.5) @db.Decimal(3, 2)
+  referralCode      String    @unique @default(uuid())
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  profile           Profile?
+  devices           Device[]
+  ridesAsHost       Ride[]          @relation("HostRides")
+  rideRequests      RideRequest[]   @relation("GuestRequests")
+  subscriptions     Subscription[]
+  wallet            Wallet?
+  sentMessages      ChatMessage[]   @relation("SentMessages")
+  kycDocuments      KycDocument[]
+  vehicles          Vehicle[]
+  notifications     Notification[]
+  supportTickets    SupportTicket[] @relation("UserTickets")
+  auditLogs         AuditLog[]      @relation("AdminLogs")
+  referralsMade     Referral[]      @relation("Referrer")
+  referralsReceived Referral[]      @relation("Referred")
+
+  @@map("users")
+}
+
+model Profile {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  bio              String?
+  avatarUrl        String?
+  companyOrCollege String?
+  isIdVerified     Boolean  @default(false)
+  isCompanyVerified Boolean @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+model Device {
+  id        String   @id @default(uuid())
+  userId    String
+  fcmToken  String?
+  platform  String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("devices")
+}
+
+// ── VEHICLES & KYC ────────────────────────────────────────────────
+
+model Vehicle {
+  id           String      @id @default(uuid())
+  userId       String
+  type         VehicleType
+  model        String
+  number       String      @unique
+  isVerified   Boolean     @default(false)
+  createdAt    DateTime    @default(now())
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rides Ride[]
+
+  @@map("vehicles")
+}
+
+model KycDocument {
+  id             String    @id @default(uuid())
+  userId         String
+  aadhaarUrl     String?
+  licenseUrl     String?
+  selfieUrl      String?
+  rcUrl          String?
+  status         KycStatus @default(NOT_SUBMITTED)
+  reviewedBy     String?
+  reviewNote     String?
+  submittedAt    DateTime?
+  reviewedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("kyc_documents")
+}
+
+// ── RIDES ─────────────────────────────────────────────────────────
+
+model Ride {
+  id                String      @id @default(uuid())
+  hostId            String
+  vehicleId         String?
+  origin            String
+  destination       String
+  originLat         Decimal?    @db.Decimal(10, 8)
+  originLng         Decimal?    @db.Decimal(11, 8)
+  destLat           Decimal?    @db.Decimal(10, 8)
+  destLng           Decimal?    @db.Decimal(11, 8)
+  distanceKm        Decimal     @db.Decimal(8, 2)
+  departureDate     DateTime
+  departureTime     String
+  // Seat management placeholder (single rider bike)
+  totalSeats        Int         @default(1)
+  availableSeats    Int         @default(1)
+  perKmRate         Decimal     @db.Decimal(8, 2)
+  totalCost         Decimal     @db.Decimal(10, 2)
+  genderFilter      String?
+  isRecurring       Boolean     @default(false)
+  recurrenceDays    String[]
+  // New fields for bike‑only MVP
+  liveTrackingEnabled Boolean   @default(false)
+  payoutReserved    Boolean     @default(false)
+  payoutCredited    Boolean     @default(false)
+  qrToken           String?     // time‑limited token for pickup verification
+  qrExpiresAt       DateTime?   // expiration of QR token
+  // Soft delete
+  deletedAt         DateTime?
+  status            RideStatus  @default(CREATED)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  host      User          @relation("HostRides", fields: [hostId], references: [id])
+  vehicle   Vehicle?      @relation(fields: [vehicleId], references: [id])
+  requests  RideRequest[]
+  tracking  TrackingEvent[]
+  chatMessages ChatMessage[]
+
+  @@index([hostId, status])
+  @@index([status])
+  @@map("rides")
+  routeSchedules RouteSchedule[]
+}
+
+model RouteSchedule {
+  id        String   @id @default(uuid())
+  rideId    String
+  dayOfWeek Int
+  ride      Ride     @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  @@map("route_schedules")
+}
+
+model RideRequest {
+  id               String        @id @default(uuid())
+  rideId           String
+  guestId          String
+  status           RequestStatus @default(PENDING)
+  verificationCode String
+  requestDate      DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  ride  Ride @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  guest User @relation("GuestRequests", fields: [guestId], references: [id])
+
+  @@map("ride_requests")
+}
+
+model TrackingEvent {
+  id          String   @id @default(uuid())
+  rideId      String
+  lat         Decimal  @db.Decimal(10, 8)
+  lng         Decimal  @db.Decimal(11, 8)
+  speed       Decimal? @db.Decimal(6, 2)
+  recordedAt  DateTime @default(now())
+
+  ride Ride @relation(fields: [rideId], references: [id], onDelete: Cascade)
+
+  @@map("tracking_events")
+}
+
+// ── PRICING ───────────────────────────────────────────────────────
+
+model PricingConfig {
+  id                      String   @id @default(uuid())
+  guestBaseKmLimit        Decimal  @default(5)  @db.Decimal(6, 2)
+  guestBasePrice          Decimal  @default(30) @db.Decimal(8, 2)
+  guestIncrementPerKm     Decimal  @default(5)  @db.Decimal(8, 2)
+  guest7dMultiplier       Decimal  @default(1.0) @db.Decimal(6, 3)
+  guest15dMultiplier      Decimal  @default(2.2) @db.Decimal(6, 3)
+  guestMonthlyMultiplier  Decimal  @default(4.4) @db.Decimal(6, 3)
+  hostUpto5kmSlab         Decimal  @default(49)  @db.Decimal(8, 2)
+  hostAbove5kmSlab        Decimal  @default(99)  @db.Decimal(8, 2)
+  host7dPrice             Decimal  @default(122.5) @db.Decimal(8, 2)
+  host15dPrice            Decimal  @default(269.5) @db.Decimal(8, 2)
+  hostMonthlyPrice        Decimal  @default(539)   @db.Decimal(8, 2)
+  renewalCreditPercent    Decimal  @default(10)  @db.Decimal(5, 2)
+  renewalCreditCap        Decimal  @default(100) @db.Decimal(8, 2)
+  loyaltyCashbackPercent  Decimal  @default(3)   @db.Decimal(5, 2)
+  loyaltyCashbackMin      Decimal  @default(10)  @db.Decimal(8, 2)
+  loyaltyCashbackMax      Decimal  @default(40)  @db.Decimal(8, 2)
+  isActive                Boolean  @default(true)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@map("pricing_config")
+}
+
+model SubscriptionPlan {
+  id           String   @id @default(uuid())
+  role         String
+  planType     PlanType
+  name         String
+  durationDays Int
+  multiplier   Decimal? @db.Decimal(6, 3)
+  basePrice    Decimal? @db.Decimal(8, 2)
+  badge        String?
+  features     String[]
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  subscriptions Subscription[]
+
+  @@map("subscription_plans")
+}
+
+// ── SUBSCRIPTIONS ─────────────────────────────────────────────────
+
+model Subscription {
+  id           String             @id @default(uuid())
+  userId       String
+  planId       String
+  role         String
+  planType     PlanType
+  routeId      String?
+  distanceKm   Decimal            @db.Decimal(8, 2)
+  basePrice    Decimal            @db.Decimal(10, 2)
+  finalPrice   Decimal            @db.Decimal(10, 2)
+  status       SubscriptionStatus @default(ACTIVE)
+  startedAt    DateTime           @default(now())
+  expiresAt    DateTime
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  user    User             @relation(fields: [userId], references: [id])
+  plan    SubscriptionPlan @relation(fields: [planId], references: [id])
+  credits GuestCredit[]
+  payment Payment?
+
+  @@map("subscriptions")
+}
+
+model GuestCredit {
+  id                      String   @id @default(uuid())
+  userId                  String
+  creditType              String
+  amount                  Decimal  @db.Decimal(8, 2)
+  sourceSubscriptionId    String
+  appliedToSubscriptionId String?
+  createdAt               DateTime @default(now())
+
+  subscription Subscription @relation(fields: [sourceSubscriptionId], references: [id])
+
+  @@map("guest_credits")
+}
+
+model HostPayout {
+  id             String    @id @default(uuid())
+  hostId         String
+  subscriptionId String
+  planCost       Decimal   @db.Decimal(10, 2)
+  distanceSlab   Decimal   @db.Decimal(10, 2)
+  totalPayout    Decimal   @db.Decimal(10, 2)
+  payoutMonth    DateTime
+  paidAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@map("host_payouts")
+}
+
+// ── PAYMENTS & WALLETS ────────────────────────────────────────────
+
+model Payment {
+  id               String          @id @default(uuid())
+  userId           String
+  subscriptionId   String?         @unique
+  provider         PaymentProvider
+  providerOrderId  String?
+  providerPaymentId String?
+  amount           Decimal         @db.Decimal(10, 2)
+  currency         String          @default("INR")
+  status           PaymentStatus   @default(PENDING)
+  metadata         Json?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+
+  @@map("payments")
+}
+
+model Wallet {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  balance   Decimal  @default(0) @db.Decimal(10, 2)
+  isLocked  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions WalletTransaction[]
+
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id          String          @id @default(uuid())
+  walletId    String
+  type        TransactionType
+  amount      Decimal         @db.Decimal(10, 2)
+  balance     Decimal         @db.Decimal(10, 2)
+  description String
+  reference   String?
+  createdAt   DateTime        @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@map("wallet_transactions")
+}
+
+model PromoCode {
+  id              String   @id @default(uuid())
+  code            String   @unique
+  discountPercent Decimal  @db.Decimal(5, 2)
+  usageLimit      Int
+  usedCount       Int      @default(0)
+  expiryDate      DateTime
+  isActive        Boolean  @default(true)
+  description     String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  usages PromoUsage[]
+
+  @@map("promo_codes")
+}
+
+model PromoUsage {
+  id        String   @id @default(uuid())
+  promoId   String
+  userId    String
+  usedAt    DateTime @default(now())
+
+  promo PromoCode @relation(fields: [promoId], references: [id])
+
+  @@map("promo_usages")
+}
+
+model Referral {
+  id          String    @id @default(uuid())
+  referrerId  String
+  referredId  String
+  rewardAmount Decimal  @db.Decimal(8, 2)
+  paidAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  referrer User @relation("Referrer", fields: [referrerId], references: [id])
+  referred User @relation("Referred", fields: [referredId], references: [id])
+
+  @@map("referrals")
+}
+
+// ── CHAT ──────────────────────────────────────────────────────────
+
+model ChatMessage {
+  id         String   @id @default(uuid())
+  senderId   String
+  receiverId String
+  rideId     String?
+  text       String
+  isRead     Boolean  @default(false)
+  sentAt     DateTime @default(now())
+
+  sender User  @relation("SentMessages", fields: [senderId], references: [id])
+  ride   Ride? @relation(fields: [rideId], references: [id])
+
+  @@map("chat_messages")
+}
+
+// ── NOTIFICATIONS ─────────────────────────────────────────────────
+
+model Notification {
+  id        String              @id @default(uuid())
+  userId    String
+  title     String
+  body      String
+  channel   NotificationChannel
+  isRead    Boolean             @default(false)
+  sentAt    DateTime            @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+// ── CMS / BRANDING / THEME ────────────────────────────────────────
+
+model CmsPage {
+  id        String   @id @default(uuid())
+  slug      String   @unique
+  title     String
+  content   String
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@map("cms_pages")
+}
+
+model BrandingConfig {
+  id           String   @id @default(uuid())
+  appName      String   @default("Move Buddy")
+  logoUrl      String?
+  faviconUrl   String?
+  supportEmail String?
+  supportPhone String?
+  tagline      String?
+  isActive     Boolean  @default(true)
+  updatedAt    DateTime @updatedAt
+  createdAt    DateTime @default(now())
+
+  @@map("branding_config")
+}
+
+model ThemeConfig {
+  id             String   @id @default(uuid())
+  primaryColor   String   @default("#7C3AED")
+  secondaryColor String   @default("#374151")
+  accentColor    String   @default("#F59E0B")
+  fontFamily     String   @default("Inter")
+  darkMode       Boolean  @default(false)
+  buttonStyle    String   @default("rounded")
+  cardStyle      String   @default("shadow")
+  isActive       Boolean  @default(true)
+  updatedAt      DateTime @updatedAt
+  createdAt      DateTime @default(now())
+
+  @@map("theme_config")
+}
+
+model FeatureFlag {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       Boolean  @default(true)
+  description String
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@map("feature_flags")
+}
+
+// ── SUPPORT & AUDIT ───────────────────────────────────────────────
+
+model SupportTicket {
+  id          String        @id @default(uuid())
+  userId      String
+  subject     String
+  description String
+  status      TicketStatus  @default(OPEN)
+  category    String?
+  assignedTo  String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  user     User              @relation("UserTickets", fields: [userId], references: [id])
+  messages TicketMessage[]
+
+  @@map("support_tickets")
+}
+
+model TicketMessage {
+  id        String   @id @default(uuid())
+  ticketId  String
+  senderId  String
+  text      String
+  sentAt    DateTime @default(now())
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@map("ticket_messages")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  adminId    String
+  action     String
+  module     String
+  target     String?
+  oldValue   Json?
+  newValue   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  admin User @relation("AdminLogs", fields: [adminId], references: [id])
+
+  @@map("audit_logs")
+}

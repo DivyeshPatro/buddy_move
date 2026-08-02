@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --color-primary:   #7C3AED;
+    --color-secondary: #374151;
+    --color-accent:    #F59E0B;
+    --font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  }
+
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: var(--font-family);
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  img, video {
+    max-width: 100%;
+    height: auto;
+  }
+}
