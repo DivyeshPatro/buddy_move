@@ -7,7 +7,7 @@
     "dev": "concurrently \"tsx backend/server.ts\" \"vite --config frontend/vite.config.ts\"",
     "dev:backend": "tsx backend/server.ts",
     "dev:frontend": "vite --config frontend/vite.config.ts",
-    "build": "vite build --config frontend/vite.config.ts && esbuild backend/server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "build": "npx prisma generate --schema=backend/prisma/schema.prisma && vite build --config frontend/vite.config.ts && esbuild backend/server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "lint": "tsc --noEmit",
     "test": "vitest run",

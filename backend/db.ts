@@ -1,17 +1,50 @@
-import prisma from "./prisma";
+import fs from "fs";
+import prisma, { setFallbackDb, setFallbackMode, isFallbackMode } from "./prisma";
 import { logger } from "./logger";
 import { encryptPii, decryptPii } from "./crypto";
 
+const FALLBACK_DB_PATH = "./db.json";
 export function dbEnabled(): boolean {
   return true;
 }
 
 export async function initDb(): Promise<void> {
-  await prisma.$connect();
-  logger.info("[db] Connected to PostgreSQL via Prisma.");
+  try {
+    if (!process.env.DATABASE_URL) {
+      throw new Error("DATABASE_URL environment variable is not set");
+    }
+    await prisma.$connect();
+    logger.info("[db] Connected to PostgreSQL via Prisma.");
+  } catch (e) {
+    logger.warn({ err: e }, "[db] Prisma DB connection failed. Activating local file-based database fallback.");
+    setFallbackMode(true);
+  }
 }
 
 export async function loadState(defaults: any): Promise<any> {
+  if (isFallbackMode()) {
+    logger.info("[db] Fallback mode active — loading state from local file.");
+    if (fs.existsSync(FALLBACK_DB_PATH)) {
+      try {
+        const fileData = fs.readFileSync(FALLBACK_DB_PATH, "utf8");
+        const parsed = JSON.parse(fileData);
+        const state = { ...defaults, ...parsed };
+        setFallbackDb(state);
+        logger.info("[db] Loaded state from local file db.json successfully.");
+        return state;
+      } catch (err) {
+        logger.error({ err }, "[db] Failed to parse local db.json, using seeded defaults.");
+      }
+    }
+    logger.info("[db] Seeding default state and writing to db.json.");
+    setFallbackDb(defaults);
+    try {
+      fs.writeFileSync(FALLBACK_DB_PATH, JSON.stringify(defaults, null, 2), "utf8");
+    } catch (err) {
+      logger.error({ err }, "[db] Failed to write initial db.json.");
+    }
+    return defaults;
+  }
   const configCount = await prisma.appConfig.count();
   if (configCount === 0) {
     logger.info("[db] Empty database — seeding default state.");
@@ -306,6 +339,15 @@ export function saveState(state: any): Promise<void> {
 async function persistAll(state: any): Promise<void> {
   if (!state) return;
 
+  if (isFallbackMode()) {
+    try {
+      setFallbackDb(state);
+      fs.writeFileSync(FALLBACK_DB_PATH, JSON.stringify(state, null, 2), "utf8");
+    } catch (err) {
+      logger.error({ err }, "[db] Fallback save failed");
+    }
+    return;
+  }
   console.log("DBP1: persistAll start");
   console.log("DBP2: persisting users");
   await safeUpsert(prisma.user, state.users.map(toDbUser), "id");

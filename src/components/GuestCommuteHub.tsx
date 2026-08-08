@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { User, Subscription, CommuteDirection } from '../types';
 import PlacePicker, { PlaceValue } from './PlacePicker';
+import RouteMap from './RouteMap';
 import PricingPlans from './PricingPlans';
 import PaymentSummary from './PaymentSummary';
 import { startCheckout } from '../lib/checkout';
@@ -358,6 +359,11 @@ function DirectionCard({ dir, sub, match, onFindMatch }: {
           <div className="space-y-3">
             <PlacePicker label="Home" placeholder="Your home address" value={home} onChange={setHome} />
             <PlacePicker label="Destination (Office / College)" placeholder="Where you commute to" value={dest} onChange={setDest} />
+            {(home.geo || dest.geo) && (
+              <div className="my-2">
+                <RouteMap originGeo={home.geo} destinationGeo={dest.geo} originAddress={home.address} destinationAddress={dest.address} />
+              </div>
+            )}
             <div>
               <label className="block text-xs font-semibold !text-[#b57e00] uppercase tracking-wider mb-1"><Clock className="w-3 h-3 inline mr-1" />Departure time</label>
               <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full !bg-[#eef0f3] border !border-[#ffb300]/25 rounded-xl py-2.5 px-3 !text-[#2a2e34] text-sm focus:outline-none focus:!border-[#ffb300]" />

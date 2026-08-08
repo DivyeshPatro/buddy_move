@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { User, Subscription, CommuteDirection } from '../types';
 import PlacePicker, { PlaceValue } from './PlacePicker';
+import RouteMap from './RouteMap';
 import PricingPlans from './PricingPlans';
 import PaymentSummary from './PaymentSummary';
 import { startCheckout } from '../lib/checkout';
@@ -228,6 +229,11 @@ export default function PlansPage({ currentUser, onGoToCommute, onRefreshWallet 
 
           <PlacePicker label="Home" placeholder="Your home address" value={home} onChange={setHome} />
           <PlacePicker label="Destination (Office / College)" placeholder="Where you commute to" value={dest} onChange={setDest} />
+          {(home.geo || dest.geo) && (
+            <div className="my-2">
+              <RouteMap originGeo={home.geo} destinationGeo={dest.geo} originAddress={home.address} destinationAddress={dest.address} />
+            </div>
+          )}
 
           {/* Departure time(s) */}
           {isHost ? (

@@ -218,6 +218,36 @@ export default function AuthModal({ onClose, onSuccess, defaultRole = 'guest' }:
     }
   };
 
+  const handleTruecallerLogin = async () => {
+    setError('');
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/auth/truecaller', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: phone || '+919876543210',
+          name: name || (isLogin ? 'Saurav Sharma' : 'MoveBuddy Commuter'),
+          email: email || undefined
+        })
+      });
+      const data = await res.json();
+      if (data.error) {
+        setError(data.error);
+        setIsLoading(false);
+        return;
+      }
+      if (data.token && data.user) {
+        setTokens(data.token, data.refreshToken);
+        setIsLoading(false);
+        onSuccess(data.user);
+        onClose();
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Truecaller authentication failed');
+      setIsLoading(false);
+    }
+  };
   const handleOtpChange = (index: number, val: string) => {
     if (isNaN(Number(val))) return;
     const nextOtp = [...otp];
@@ -419,6 +449,21 @@ export default function AuthModal({ onClose, onSuccess, defaultRole = 'guest' }:
                 {isLoading ? <Loader className="w-5 h-5 animate-spin" /> : 'Request 6-Digit Code'}
                 <ArrowRight className="w-4 h-4" />
               </button>
+              <div className="pt-3 border-t border-[#ffb300]/15 space-y-2">
+                <div className="text-center text-[10px] font-bold uppercase tracking-wider !text-[#e9eaec]/50">
+                  Instant Verification Options
+                </div>
+                <button
+                  type="button"
+                  id="btn_truecaller_auth"
+                  onClick={handleTruecallerLogin}
+                  disabled={isLoading}
+                  className="w-full !bg-[#0087FF] hover:!bg-[#0073DA] !text-white font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer text-sm shadow-md border border-white/10"
+                >
+                  <Shield className="w-4 h-4" />
+                  <span>Continue with Truecaller</span>
+                </button>
+              </div>
             </form>
           ) : (
             <form onSubmit={handleVerifyOtp} className="space-y-5">

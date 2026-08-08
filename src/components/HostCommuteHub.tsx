@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { User, Subscription } from '../types';
 import PlacePicker, { PlaceValue } from './PlacePicker';
+import RouteMap from './RouteMap';
 import PaymentSummary from './PaymentSummary';
 import { startCheckout } from '../lib/checkout';
 import { formatINR, calcHostSlab, calcHostEarningsProjection, type PlanType } from '../lib/pricing';
@@ -166,6 +167,11 @@ export default function HostCommuteHub({ currentUser, onRefreshWallet }: Props) 
           <div className="text-sm font-bold !text-[#e9eaec]">Set your route to join the matching network</div>
           <PlacePicker label="Home" placeholder="Your home address" value={home} onChange={setHome} />
           <PlacePicker label="Destination (Office / College)" placeholder="Where you commute to" value={dest} onChange={setDest} />
+          {(home.geo || dest.geo) && (
+            <div className="my-2">
+              <RouteMap originGeo={home.geo} destinationGeo={dest.geo} originAddress={home.address} destinationAddress={dest.address} />
+            </div>
+          )}
           <div>
             <label className="block text-xs font-semibold !text-[#ffb300] uppercase tracking-wider mb-1"><Clock className="w-3 h-3 inline mr-1" />Departure time</label>
             <input type="time" value={departureTime} onChange={e => setDepartureTime(e.target.value)} className="w-full !bg-[#1c1f22] border !border-[#ffb300]/25 rounded-xl py-2.5 px-3 !text-[#e9eaec] text-sm focus:outline-none focus:!border-[#ffb300]" />

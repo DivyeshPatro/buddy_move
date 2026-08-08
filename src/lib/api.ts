@@ -49,7 +49,7 @@ function tryRefresh(): Promise<boolean> {
   return refreshing;
 }
 
-window.fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
+const customFetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
   const url = urlOf(input);
   if (!url.includes('/api/') || AUTH_EXEMPT.test(url)) {
     return origFetch(input, init);
@@ -68,3 +68,13 @@ window.fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
   }
   return res;
 };
+try {
+  window.fetch = customFetch;
+} catch (e) {
+  Object.defineProperty(window, 'fetch', {
+    value: customFetch,
+    configurable: true,
+    writable: true,
+    enumerable: true
+  });
+}

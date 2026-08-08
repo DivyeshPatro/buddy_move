@@ -18,13 +18,15 @@ interface PlacePickerProps {
 interface Suggestion {
   id: string;
   text: string;
-  prediction: any; // google.maps.places.PlacePrediction
+  prediction?: any; // google.maps.places.PlacePrediction
+  osmPrediction?: {
+    isNominatim: boolean;
+    formattedAddress: string;
+    lat: number;
+    lng: number;
+  };
 }
 
-// Address input backed by the Google Places API (NEW) — AutocompleteSuggestion +
-// Place.fetchFields. Emits the formatted address AND coordinates (used by the
-// matching engine and the free haversine distance fallback). Degrades to a plain
-// typed-address input if Maps isn't available.
 export default function PlacePicker({ label, placeholder, value, onChange }: PlacePickerProps) {
   const [query, setQuery] = useState(value.address || '');
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -70,22 +72,60 @@ export default function PlacePicker({ label, placeholder, value, onChange }: Pla
 
   const fetchSuggestions = async (text: string) => {
     if (text.trim().length < 3) { setSuggestions([]); setOpen(false); return; }
-    // Lazily (re)load the library if it isn't ready — this is what restores
-    // autocomplete after a transient load failure.
+
+    // 1. Attempt Google Places (New) first if enabled
     const places = placesRef.current?.AutocompleteSuggestion ? placesRef.current : await ensureLib();
-    if (!places?.AutocompleteSuggestion) { setSuggestions([]); setOpen(false); return; }
+    if (places?.AutocompleteSuggestion) {
+      setLoadingSug(true);
+      places.AutocompleteSuggestion
+        .fetchAutocompleteSuggestions({ input: text, sessionToken: tokenRef.current, includedRegionCodes: ['in'] })
+        .then((res: any) => {
+          const list: Suggestion[] = (res?.suggestions || [])
+            .filter((s: any) => s.placePrediction)
+            .map((s: any) => ({
+              id: s.placePrediction.placeId,
+              text: s.placePrediction.text?.text || '',
+              prediction: s.placePrediction
+            }));
+          setSuggestions(list);
+          setOpen(list.length > 0);
+        })
+        .catch((e: any) => {
+          console.warn('[places] suggest failed:', e?.message || e);
+          setSuggestions([]);
+        })
+        .finally(() => setLoadingSug(false));
+      return;
+    }
+
+    // 2. Fallback to OpenStreetMap (Nominatim) autocomplete for a fully functional free experience
     setLoadingSug(true);
-    places.AutocompleteSuggestion
-      .fetchAutocompleteSuggestions({ input: text, sessionToken: tokenRef.current, includedRegionCodes: ['in'] })
-      .then((res: any) => {
-        const list: Suggestion[] = (res?.suggestions || [])
-          .filter((s: any) => s.placePrediction)
-          .map((s: any) => ({ id: s.placePrediction.placeId, text: s.placePrediction.text?.text || '', prediction: s.placePrediction }));
-        setSuggestions(list);
-        setOpen(list.length > 0);
-      })
-      .catch((e: any) => { console.warn('[places] suggest failed:', e?.message || e); setSuggestions([]); })
-      .finally(() => setLoadingSug(false));
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(text)}&countrycodes=in&limit=5`, {
+        headers: {
+          'Accept-Language': 'en'
+        }
+      });
+      if (!res.ok) throw new Error('Nominatim failed');
+      const data = await res.json();
+      const list: Suggestion[] = data.map((item: any, idx: number) => ({
+        id: `osm_${item.place_id || idx}`,
+        text: item.display_name,
+        osmPrediction: {
+          isNominatim: true,
+          formattedAddress: item.display_name,
+          lat: Number(item.lat),
+          lng: Number(item.lon)
+        }
+      }));
+      setSuggestions(list);
+      setOpen(list.length > 0);
+    } catch (e: any) {
+      console.warn('[nominatim] suggest failed:', e?.message || e);
+      setSuggestions([]);
+    } finally {
+      setLoadingSug(false);
+    }
   };
 
   const handleInput = (text: string) => {
@@ -98,6 +138,17 @@ export default function PlacePicker({ label, placeholder, value, onChange }: Pla
   const selectSuggestion = async (s: Suggestion) => {
     setOpen(false);
     setQuery(s.text);
+
+    // If it's a Nominatim prediction
+    if (s.osmPrediction) {
+      onChange({
+        address: s.osmPrediction.formattedAddress,
+        geo: { lat: s.osmPrediction.lat, lng: s.osmPrediction.lng }
+      });
+      return;
+    }
+
+    // Google Places prediction
     try {
       const place = s.prediction.toPlace();
       await place.fetchFields({ fields: ['formattedAddress', 'location'] });
@@ -154,3 +205,4 @@ export default function PlacePicker({ label, placeholder, value, onChange }: Pla
     </div>
   );
 }
+
