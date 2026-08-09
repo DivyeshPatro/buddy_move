@@ -196,6 +196,14 @@ function getRazorpay(): Razorpay | null {
   if (!key_id || !key_secret || key_id.includes("your-")) return null;
   return new Razorpay({ key_id, key_secret });
 }
+// The Razorpay SDK has no built-in request timeout. If api.razorpay.com is
+// unreachable but not actively refused — a firewall that blackholes packets, a
+// proxy that swallows the connection, flaky DNS — orders.create() never settles.
+// The Express handler then never responds, and the browser sits on a spinner
+// forever with no error and no checkout overlay. Bounded via withTimeout()
+// (declared above) so the caller always gets an answer.
+const RAZORPAY_TIMEOUT_MS = 12000;
+
 function razorpayConfigured(): boolean {
   const k = process.env.RAZORPAY_KEY_ID;
   return !!(k && process.env.RAZORPAY_KEY_SECRET && !k.includes("your-"));
@@ -775,11 +783,13 @@ function requireRole(req: any, res: any, ...allowed: AdminRoleType[]): boolean {
     res.status(401).json({ message: "Unauthorized: missing or invalid token", statusCode: 401 });
     return false;
   }
-  if (auth.role !== 'admin') {
+  // Case-insensitive: tokens minted before the normalisation fix in auth.ts, or
+  // from a Prisma-sourced UserRole enum, carry 'ADMIN' rather than 'admin'.
+  if (String(auth.role || '').toLowerCase() !== 'admin') {
     res.status(403).json({ message: "Forbidden: not an admin account", statusCode: 403 });
     return false;
   }
-  const adminRole = (auth.adminRole as AdminRoleType) || 'ADMIN';
+  const adminRole = (String(auth.adminRole || '').toUpperCase() || 'ADMIN') as AdminRoleType;
   if (allowed.length > 0 && !allowed.includes(adminRole)) {
     res.status(403).json({
       message: `Forbidden: requires ${allowed.join(' or ')}`,
@@ -1276,6 +1286,15 @@ app.post("/api/auth/mode", (req, res) => {
   if (mode !== 'guest' && mode !== 'host') {
     return res.status(400).json({ error: "Invalid role mode" });
   }
+  // An admin account must never be demoted by the guest/host toggle. The toggle
+  // is rendered in the navbar for every signed-in user, so a single click used
+  // to overwrite role='admin' with 'host' — permanently, in the database. Every
+  // admin endpoint then answered 403 "not an admin account", with no way back
+  // through the UI because the admin panel was the thing locked away.
+  if (String(user.role || '').toLowerCase() === 'admin' || user.adminRole) {
+    logger.warn({ userId, attemptedMode: mode }, "[auth] blocked role switch on an admin account");
+    return res.status(400).json({ error: "Admin accounts cannot switch between guest and host modes" });
+  }
   user.role = mode;
   saveDB(db);
   res.json({ success: true, user });
@@ -1580,11 +1599,15 @@ app.post("/api/wallet/topup-order", rlMiddleware(20, 60000, 120000), async (req,
   let providerOrderId: string;
   try {
     if (rzp) {
-      const order = await rzp.orders.create({
-        amount: Math.round(amount * 100),
-        currency: "INR",
-        notes: { userId, type: "wallet_topup" },
-      });
+      const order = await withTimeout(
+        rzp.orders.create({
+          amount: Math.round(amount * 100),
+          currency: "INR",
+          notes: { userId, type: "wallet_topup" },
+        }),
+        RAZORPAY_TIMEOUT_MS,
+        "Razorpay orders.create"
+      );
       providerOrderId = order.id;
     } else {
       providerOrderId = "order_dev_" + randomUUID().replace(/-/g, "").substring(0, 10);
@@ -1601,7 +1624,12 @@ app.post("/api/wallet/topup-order", rlMiddleware(20, 60000, 120000), async (req,
     createdAt: new Date().toISOString(),
   };
   db.payments.push(payment);
-  await saveDB(db);
+  // Do NOT block the response on saveDB(): it serialises through saveQueue and
+  // persists the ENTIRE state (all users, subscriptions, matches, …) to Postgres.
+  // Measured at ~48s against Supabase, during which the browser sat on a spinner
+  // and no checkout overlay ever opened. The payment is already in memory, which
+  // is what topup-verify reads, so durability can catch up in the background.
+  void saveDB(db).catch(e => logger.error({ err: e }, "[wallet] background persist failed"));
 
   res.json({
     orderId: providerOrderId,
@@ -1893,11 +1921,15 @@ app.post("/api/payments/create-order", rlMiddleware(20, 60000, 120000), validate
   let providerOrderId: string;
   try {
     if (rzp) {
-      const order = await rzp.orders.create({
-        amount: Math.round(amount * 100), // paise
-        currency: "INR",
-        notes: { userId, planName, role: subRole },
-      });
+      const order = await withTimeout(
+        rzp.orders.create({
+          amount: Math.round(amount * 100), // paise
+          currency: "INR",
+          notes: { userId, planName, role: subRole },
+        }),
+        RAZORPAY_TIMEOUT_MS,
+        "Razorpay orders.create"
+      );
       providerOrderId = order.id;
     } else {
       providerOrderId = "order_dev_" + randomUUID().replace(/-/g, "").substring(0, 10);
@@ -1914,14 +1946,12 @@ app.post("/api/payments/create-order", rlMiddleware(20, 60000, 120000), validate
     createdAt: new Date().toISOString(),
   };
   db.payments.push(payment);
-  try {
-    await Promise.race([
-      saveDB(db),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("saveDB timed out")), 10000)),
-    ]);
-  } catch (e: any) {
-    logger.error({ err: e, userId }, "[payments] create-order saveDB failed");
-  }
+  // Same reasoning as the wallet top-up path: saveDB() persists the whole state
+  // and can take tens of seconds against a remote Postgres. The 10s race that
+  // used to guard this still cost every checkout up to 10s of dead time before
+  // the overlay could open. The record lives in memory, which is what /verify
+  // reads, so persist in the background instead of making the user wait.
+  void saveDB(db).catch(e => logger.error({ err: e, userId }, "[payments] background persist failed"));
 
   res.json({
     orderId: providerOrderId, keyId: process.env.RAZORPAY_KEY_ID || null,

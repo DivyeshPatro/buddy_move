@@ -23,12 +23,33 @@ export default function RouteMap({
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
   const polylineRef = useRef<any>(null);
+  const retryRef = useRef<number | null>(null);
 
   useEffect(() => {
-    // Check if Leaflet is loaded on the window
-    const L = (window as any).L;
-    if (!L || !mapContainerRef.current) return;
+    let cancelled = false;
 
+    // Leaflet is delivered by a CDN <script> in index.html. If that script has
+    // not executed yet (slow network) or was injected late, window.L is still
+    // undefined — and the previous code just bailed out permanently, leaving a
+    // blank grey box that never recovered. Poll until Leaflet appears, but give
+    // up after ~10s so a blocked CDN cannot leave a timer running forever.
+    let attempts = 0;
+    const MAX_ATTEMPTS = 40; // 40 × 250ms
+    const run = () => {
+      if (cancelled) return;
+      const L = (window as any).L;
+      if (!L || !mapContainerRef.current) {
+        if (attempts++ >= MAX_ATTEMPTS) {
+          console.warn('[map] Leaflet did not load — check the CDN <script> in index.html');
+          return;
+        }
+        retryRef.current = window.setTimeout(run, 250);
+        return;
+      }
+      draw(L);
+    };
+
+    const draw = (L: any) => {
     // Initialize the map if not already done
     if (!mapInstanceRef.current) {
       mapInstanceRef.current = L.map(mapContainerRef.current, {
@@ -106,7 +127,13 @@ export default function RouteMap({
     setTimeout(() => {
       map.invalidateSize();
     }, 100);
+    };
 
+    run();
+    return () => {
+      cancelled = true;
+      if (retryRef.current) window.clearTimeout(retryRef.current);
+    };
   }, [originGeo, destinationGeo, originAddress, destinationAddress]);
 
   return (

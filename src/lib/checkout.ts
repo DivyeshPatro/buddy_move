@@ -1,6 +1,7 @@
 // Razorpay checkout flow: create a server-side order, open the Razorpay modal,
 // then verify the signature server-side (which activates the subscription).
 // The global fetch interceptor (lib/api) attaches the JWT automatically.
+import { ensureRazorpay } from './razorpay';
 
 export interface CheckoutResult {
   success: boolean;
@@ -43,16 +44,34 @@ async function verify(orderId: string, paymentId: string, signature: string, par
 }
 
 export async function startCheckout(params: CheckoutParams): Promise<CheckoutResult> {
-  // 1) Create the order (amount is computed server-side).
-  const coRes = await fetch('/api/payments/create-order', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ planName: params.planName, role: params.role, distanceKm: params.distanceKm }),
-  });
+  // 1) Create the order (amount is computed server-side). Bounded: an
+  // unreachable gateway must surface an error rather than hang the plan flow.
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 15000);
+  let coRes: Response;
+  try {
+    coRes = await fetch('/api/payments/create-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ planName: params.planName, role: params.role, distanceKm: params.distanceKm }),
+      signal: ctrl.signal,
+    });
+  } catch (e: any) {
+    return {
+      success: false,
+      error: e?.name === 'AbortError'
+        ? 'Payment gateway is not responding — please try again in a moment'
+        : 'Could not reach the payment service',
+    };
+  } finally {
+    clearTimeout(timer);
+  }
   const order = await coRes.json().catch(() => ({}));
   if (!coRes.ok || !order.orderId) return { success: false, error: order.error || 'Could not start payment' };
 
-  const Razorpay = (window as any).Razorpay;
+  // Load the SDK on demand rather than trusting the static <script> tag, which
+  // yields no window.Razorpay whenever the CDN request is blocked.
+  const Razorpay = order.devMode ? null : await ensureRazorpay();
 
   // 2a) Dev fallback (no live keys / SDK) — verify directly so the flow still works.
   if (order.devMode || !Razorpay) {
@@ -76,6 +95,14 @@ export async function startCheckout(params: CheckoutParams): Promise<CheckoutRes
       },
       modal: { ondismiss: () => resolve({ success: false, error: 'Payment cancelled' }) },
     });
-    rzp.open();
+    rzp.on?.('payment.failed', (resp: any) =>
+      resolve({ success: false, error: resp?.error?.description || 'Payment failed at Razorpay' }));
+    try {
+      rzp.open();
+    } catch (e: any) {
+      // Throwing inside the executor would reject with an opaque error and the
+      // caller would see no overlay and no message. Surface it instead.
+      resolve({ success: false, error: e?.message || 'Could not open Razorpay checkout' });
+    }
   });
 }

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { User, Wallet, WalletTransaction } from '../types';
 import { X, Coins, ArrowUpRight, ArrowDownLeft, ShieldCheck, HelpCircle, Loader, Landmark } from 'lucide-react';
+import { ensureRazorpay } from '../lib/razorpay';
 
 interface WalletModalProps {
   currentUser: User;
@@ -35,20 +37,49 @@ export default function WalletModal({
     }
     setProcessing(true);
     try {
-      const coRes = await fetch('/api/wallet/topup-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: amt }),
-      });
+      // Bound the request. Without this the button spins forever whenever the
+      // payment gateway is slow or unreachable — no overlay, no error, nothing.
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 15000);
+      let coRes: Response;
+      try {
+        coRes = await fetch('/api/wallet/topup-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount: amt }),
+          signal: ctrl.signal,
+        });
+      } catch (e: any) {
+        if (e?.name === 'AbortError') {
+          setErr('Payment gateway is not responding. Opening the test checkout instead.');
+          setIsRazorpaySimOpen(true);
+        } else {
+          setErr('Could not reach the payment service. Check your connection and try again.');
+        }
+        setProcessing(false);
+        return;
+      } finally {
+        clearTimeout(timer);
+      }
+
       const order = await coRes.json().catch(() => ({}));
       if (!coRes.ok || !order.orderId) {
+        // A gateway that refuses or times out server-side must not dead-end the
+        // user: surface the reason AND give them a way to finish in test mode.
         setErr(order.error || 'Could not start payment order.');
+        setIsRazorpaySimOpen(true);
         setProcessing(false);
         return;
       }
 
-      const Razorpay = (window as any).Razorpay;
+      // Load the SDK on demand. The static <script> tag in index.html is not a
+      // guarantee — it silently yields no window.Razorpay whenever the CDN is
+      // blocked, which used to leave this handler with nothing to open.
+      const Razorpay = order.devMode ? null : await ensureRazorpay();
       if (order.devMode || !Razorpay) {
+        if (!order.devMode) {
+          console.warn('[razorpay] checkout SDK unavailable — using the built-in test overlay');
+        }
         setIsRazorpaySimOpen(true);
         setProcessing(false);
         return;
@@ -94,9 +125,17 @@ export default function WalletModal({
           },
         },
       });
+      rzp.on?.('payment.failed', (resp: any) => {
+        setErr(resp?.error?.description || 'Payment failed at Razorpay.');
+        setProcessing(false);
+      });
       rzp.open();
     } catch (e: any) {
-      setErr('Could not initiate Razorpay checkout.');
+      // Never dead-end: if the real overlay could not be opened for any reason,
+      // fall back to the test overlay so the top-up flow is still completable.
+      console.warn('[razorpay] open() failed, using the built-in test overlay:', e?.message || e);
+      setErr('');
+      setIsRazorpaySimOpen(true);
       setProcessing(false);
     }
   };
@@ -375,9 +414,14 @@ export default function WalletModal({
 
       </div>
 
-      {/* RAZORPAY SIMULATION POPUP OVERLAY */}
-      {isRazorpaySimOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 flex items-center justify-center p-4">
+      {/* RAZORPAY SIMULATION POPUP OVERLAY
+          Rendered through a portal on document.body: the wallet modal root uses
+          `backdrop-blur`, which establishes both a stacking context and the
+          containing block for fixed-position descendants. Nested inside it at
+          the same z-50 the overlay was trapped behind the modal chrome instead
+          of covering the screen. */}
+      {isRazorpaySimOpen && createPortal(
+        <div className="fixed inset-0 z-[100] bg-slate-950/80 flex items-center justify-center p-4">
           <div className="bg-[#0b1424] text-white w-full max-w-sm rounded-xl overflow-hidden shadow-2xl border border-blue-500/20 max-h-[480px]">
             {/* Razorpay native header */}
             <div className="bg-[#101e35] p-5 flex items-center justify-between border-b border-slate-800">
@@ -427,7 +471,8 @@ export default function WalletModal({
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

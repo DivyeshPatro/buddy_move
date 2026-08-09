@@ -3,6 +3,18 @@ import prisma from "./prisma";
 import { logger } from "./logger";
 import { encryptPii, decryptPii } from "./crypto";
 
+// Timestamps arrive as Date objects from a real Prisma query but as ISO strings
+// from the file-backed fallback store (db.json). Calling .toISOString() on the
+// string threw "…is not a function", which rejected the whole admin request:
+// the handler never sent a response, so Ride Management just rendered nothing.
+function toIso(v: any): any {
+  if (v == null) return v;
+  if (v instanceof Date) return v.toISOString();
+  if (typeof v === "string") return v;
+  if (typeof v?.toISOString === "function") return v.toISOString();
+  return v;
+}
+
 function fromDbUser(u: any) {
   return {
     id: u.id, name: u.name, email: u.email, phone: u.phone,
@@ -17,8 +29,8 @@ function fromDbUser(u: any) {
     selfieImage: u.selfieImage, licenceImageUrl: u.licenceImageUrl,
     aadhaarImageUrl: u.aadhaarImageUrl, vehicleRcNumber: u.vehicleRcNumber,
     vehicleRcImageUrl: u.vehicleRcImageUrl,
-    verificationSubmittedAt: u.verificationSubmittedAt?.toISOString(),
-    bio: u.bio, createdAt: u.createdAt?.toISOString(),
+    verificationSubmittedAt: toIso(u.verificationSubmittedAt),
+    bio: u.bio, createdAt: toIso(u.createdAt),
   };
 }
 
@@ -32,7 +44,20 @@ function fromDbSub(s: any) {
     destination: s.destination, departureTime: s.departureTime,
     forwardTime: s.forwardTime, returnTime: s.returnTime,
     distanceKm: s.distanceKm, matchId: s.matchId,
-    createdAt: s.createdAt?.toISOString(),
+    createdAt: toIso(s.createdAt),
+  };
+}
+
+// Prisma stores MatchStatus/CommuteDirection as UPPER_SNAKE enums; the admin UI
+// compares against the lowercase domain values ('active', 'forward'). Normalise
+// on the way out so the Ride Management table renders badges and action buttons.
+function fromDbMatch(m: any) {
+  return {
+    ...m,
+    status: typeof m.status === "string" ? m.status.toLowerCase() : m.status,
+    direction: typeof m.direction === "string" ? m.direction.toLowerCase() : m.direction,
+    createdAt: toIso(m.createdAt),
+    updatedAt: toIso(m.updatedAt),
   };
 }
 
@@ -113,6 +138,9 @@ export async function adminUpdateUserStatus(userId: string, action: string, reas
 }
 
 export async function adminGetMatches(status?: string) {
+  // MatchStatus is an UPPER_SNAKE Prisma enum, so the filter must be uppercased
+  // here. (The file-backed fallback store keeps the app's lowercase values; the
+  // query layer in prisma.ts reconciles the two for enum columns.)
   const where: any = {};
   if (status && status !== "all") where.status = status.toUpperCase();
 
@@ -131,14 +159,17 @@ export async function adminGetMatches(status?: string) {
   }
 
   const subIds = matches.map(m => m.guestSubscriptionId).filter(Boolean);
+  const hostSubIds = matches.map(m => m.hostSubscriptionId).filter(Boolean);
   const subs = await prisma.subscription.findMany({ where: { id: { in: subIds } } });
   const subMap: Record<string, any> = {};
   for (const s of subs) subMap[s.id] = fromDbSub(s);
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  // HostActivityDay rows are written with subscriptionId = match.hostSubscriptionId
+  // (see the trip-completion handler in server.ts), so the "ride-days" column
+  // must be keyed off the HOST subscription ids — not the guest ones.
   const activityDays = await prisma.hostActivityDay.findMany({
     where: {
-      subscriptionId: { in: subIds },
+      subscriptionId: { in: hostSubIds },
       rideCompleted: true,
     },
   });
@@ -147,7 +178,6 @@ export async function adminGetMatches(status?: string) {
     activityCount[a.subscriptionId] = (activityCount[a.subscriptionId] || 0) + 1;
   }
 
-  const allMatchUserIds = new Set([...guestIds, ...hostIds]);
   const openTickets = await prisma.supportTicket.findMany({
     where: { status: "OPEN" },
   });
@@ -159,8 +189,9 @@ export async function adminGetMatches(status?: string) {
 
   return matches.map(m => {
     const guestSub = m.guestSubscriptionId ? subMap[m.guestSubscriptionId] : null;
+    const mappedMatch = fromDbMatch(m);
     return {
-      ...m,
+      ...mappedMatch,
       guest: userMap[m.guestId] || null,
       host: userMap[m.hostId] || null,
       route: guestSub
@@ -200,7 +231,7 @@ export async function adminGetTickets(status?: string) {
     ticketType: t.ticketType, category: t.category,
     description: t.description, screenshotUrl: t.screenshotUrl,
     guestId: t.guestId, hostId: t.hostId, rideId: t.rideId,
-    createdAt: t.createdAt?.toISOString(),
+    createdAt: toIso(t.createdAt),
   }));
 }
 
@@ -301,8 +332,8 @@ export async function adminGetPayments(status?: string) {
     subscriptionId: p.subscriptionId,
     planName: (p.notes as any)?.planName || null,
     role: (p.notes as any)?.role || null,
-    createdAt: p.createdAt?.toISOString(),
-    updatedAt: p.updatedAt?.toISOString(),
+    createdAt: toIso(p.createdAt),
+    updatedAt: toIso(p.updatedAt),
   }));
 }
 
@@ -348,7 +379,7 @@ export async function adminGetAnalytics() {
   const userCountByDate: Record<string, number> = {};
   for (const row of usersByDate) {
     if (row.createdAt) {
-      const d = row.createdAt.toISOString().split("T")[0];
+      const d = String(toIso(row.createdAt)).split("T")[0];
       userCountByDate[d] = (userCountByDate[d] || 0) + row._count;
     }
   }
@@ -426,7 +457,7 @@ export async function adminGetDBState() {
     prisma.ride.findMany({ orderBy: { createdAt: "desc" } }),
     prisma.rideRequest.findMany({ orderBy: { createdAt: "desc" } }),
     prisma.subscription.findMany({ orderBy: { createdAt: "desc" } }).then(ss => ss.map(fromDbSub)),
-    prisma.match.findMany({ orderBy: { createdAt: "desc" } }),
+    prisma.match.findMany({ orderBy: { createdAt: "desc" } }).then(ms => ms.map(fromDbMatch)),
     prisma.trip.findMany({ orderBy: { createdAt: "desc" } }),
     prisma.hostActivityDay.findMany({ orderBy: { createdAt: "desc" } }),
     prisma.payment.findMany({ orderBy: { createdAt: "desc" } }),
@@ -455,7 +486,7 @@ export async function adminGetDBState() {
       userId: w.userId, credits: w.credits,
       history: txns.filter(t => t.walletId === w.userId).map(t => ({
         id: t.id, amount: t.amount, type: t.type,
-        description: t.description, timestamp: t.timestamp?.toISOString(),
+        description: t.description, timestamp: toIso(t.timestamp),
       })),
     };
   }

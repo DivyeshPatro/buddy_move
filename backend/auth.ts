@@ -47,11 +47,22 @@ export interface AccessPayload {
 const allowedRoles = new Set(['guest', 'host', 'admin']);
 
 export function signTokens(user: User): { token: string; refreshToken: string } {
-  const role = allowedRoles.has(user.role) ? user.role : 'guest';
+  // Roles reach us in either case: the app's own domain values are lowercase
+  // ('admin'), while anything sourced from a Prisma UserRole enum is UPPER
+  // ('ADMIN'). A case-sensitive lookup silently downgraded an admin to 'guest',
+  // which made every admin endpoint answer 403 "not an admin account" — with the
+  // UI still showing the SUPER_ADMIN badge, because the client reads the user
+  // record rather than the token. Normalise before validating.
+  const normalized = String(user.role || '').toLowerCase();
+  const role = allowedRoles.has(normalized) ? normalized : 'guest';
+  if (normalized && role !== normalized) {
+    logger.warn({ userId: user.id, claimedRole: user.role }, "[auth] unrecognised role — issuing token as guest");
+  }
+  const adminRole = (user as any).adminRole;
   const payload: AccessPayload = {
     sub: user.id,
     role,
-    adminRole: (user as any).adminRole,
+    adminRole: adminRole ? String(adminRole).toUpperCase() : undefined,
   };
   const token = jwt.sign(payload, accessKey(), { expiresIn: ACCESS_TTL() } as jwt.SignOptions);
   const refreshToken = jwt.sign({ sub: user.id }, refreshKey(), { expiresIn: REFRESH_TTL() } as jwt.SignOptions);

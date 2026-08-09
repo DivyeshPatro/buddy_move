@@ -20,6 +20,42 @@ export function isFallbackMode() {
   return fallbackModeActive;
 }
 
+// ── Enum case reconciliation ───────────────────────────────────────────────
+// Prisma models declare enums in UPPER_SNAKE (ACTIVE, CANCELLED, FORWARD, …) so
+// every caller queries with the uppercase form. The fallback store (db.json) is
+// written by the running app, which uses the frontend's lowercase domain values
+// ("active", "cancelled", "forward"). A strict `!==` therefore never matched and
+// admin queries such as `match.findMany({ where: { status: "ACTIVE" } })` came
+// back empty — which is why Ride Management showed no connected rides.
+//
+// Only these known enum-backed columns are compared case-insensitively; every
+// other field (ids, names, emails, tokens) keeps exact-match semantics.
+const ENUM_FIELDS = new Set([
+  "status",
+  "direction",
+  "role",
+  "gender",
+  "adminRole",
+  "verificationStatus",
+  "vehicleType",
+  "planType",
+  "type",
+  "channel",
+  "ticketType",
+  "provider",
+]);
+
+function enumEquals(key: string, a: any, b: any): boolean {
+  if (a === b) return true;
+  if (!ENUM_FIELDS.has(key)) return false;
+  if (typeof a !== "string" || typeof b !== "string") return false;
+  return a.toLowerCase() === b.toLowerCase();
+}
+
+function enumIncludes(key: string, list: any[], itemVal: any): boolean {
+  return list.some(v => enumEquals(key, itemVal, v));
+}
+
 // Check conditions for item queries
 function matchesCondition(item: any, cond: any): boolean {
   if (!cond) return true;
@@ -41,10 +77,10 @@ function matchesCondition(item: any, cond: any): boolean {
       if (val && typeof val === 'object' && !Array.isArray(val)) {
         if ('in' in val) {
           if (!Array.isArray(val.in)) return false;
-          if (!val.in.includes(itemVal)) return false;
+          if (!enumIncludes(key, val.in, itemVal)) return false;
         } else if ('notIn' in val) {
           if (!Array.isArray(val.notIn)) return false;
-          if (val.notIn.includes(itemVal)) return false;
+          if (enumIncludes(key, val.notIn, itemVal)) return false;
         } else if ('contains' in val) {
           if (typeof itemVal !== 'string') return false;
           const search = String(val.contains).toLowerCase();
@@ -58,14 +94,14 @@ function matchesCondition(item: any, cond: any): boolean {
         } else if ('lte' in val) {
           if (itemVal == null || itemVal > val.lte) return false;
         } else if ('equals' in val) {
-          if (itemVal !== val.equals) return false;
+          if (!enumEquals(key, itemVal, val.equals)) return false;
         } else if ('not' in val) {
-          if (itemVal === val.not) return false;
+          if (enumEquals(key, itemVal, val.not)) return false;
         } else {
           if (JSON.stringify(itemVal) !== JSON.stringify(val)) return false;
         }
       } else {
-        if (itemVal !== val) return false;
+        if (!enumEquals(key, itemVal, val)) return false;
       }
     }
   }

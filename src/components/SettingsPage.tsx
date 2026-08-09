@@ -28,6 +28,9 @@ const Item = ({ icon: Icon, label, sub, onClick, danger }: { icon: React.Compone
 
 export default function SettingsPage({ currentUser, onToggleRole, onOpenWallet, onOpenTickets, onLogout }: SettingsPageProps) {
   const isHost = currentUser.role === 'host';
+  // Admin accounts must not see the guest/host switch: clicking it used to
+  // overwrite role='admin' in the database and lock them out of the admin panel.
+  const isAdmin = String(currentUser.role || '').toLowerCase() === 'admin' || !!(currentUser as any).adminRole;
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 pb-32">
       <div className="mb-5">
@@ -36,12 +39,14 @@ export default function SettingsPage({ currentUser, onToggleRole, onOpenWallet, 
       </div>
 
       <div className="bg-white border border-[#ffb300]/15 rounded-2xl overflow-hidden mb-4">
-        <Item
-          icon={Repeat}
-          label={isHost ? 'Switch to Guest mode' : 'Switch to Host mode'}
-          sub={isHost ? 'Find rides as a passenger' : 'Offer rides & earn'}
-          onClick={() => onToggleRole(isHost ? 'guest' : 'host')}
-        />
+        {!isAdmin && (
+          <Item
+            icon={Repeat}
+            label={isHost ? 'Switch to Guest mode' : 'Switch to Host mode'}
+            sub={isHost ? 'Find rides as a passenger' : 'Offer rides & earn'}
+            onClick={() => onToggleRole(isHost ? 'guest' : 'host')}
+          />
+        )}
         <Item icon={Wallet} label="Wallet" sub="Balance, top-up, redeem voucher" onClick={onOpenWallet} />
         <Item icon={LifeBuoy} label="Support & SOS" sub="Raise a ticket or report an issue" onClick={onOpenTickets} />
       </div>
