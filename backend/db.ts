@@ -104,7 +104,7 @@ export async function loadState(defaults: any): Promise<any> {
   state.rides = rides;
   state.requests = requests;
   state.subscriptions = subscriptions;
-  state.matches = matches;
+  state.matches = matches.map(fromDbMatch);
   state.trips = trips;
   state.hostActivityDays = hostActivityDays;
   state.payments = payments.map(fromDbPayment);
@@ -249,6 +249,23 @@ async function loadSubscriptions(): Promise<any[]> {
   return subs.map(fromDbSub);
 }
 
+function fromDbMatch(m: any): any {
+  return {
+    ...m,
+    status: m.status?.toLowerCase(),
+    direction: m.direction?.toLowerCase(),
+    createdAt: m.createdAt?.toISOString(),
+  };
+}
+
+function toDbMatch(m: any): any {
+  return {
+    ...m,
+    status: (m.status || "active").toUpperCase(),
+    direction: m.direction ? m.direction.toUpperCase() : "FORWARD",
+  };
+}
+
 async function loadTickets(): Promise<any[]> {
   const tickets = await prisma.supportTicket.findMany({ orderBy: { createdAt: "desc" } });
   return tickets.map((t: any) => ({
@@ -358,7 +375,7 @@ async function persistAll(state: any): Promise<void> {
   console.log("DBP5: persisting subscriptions");
   await safeUpsert(prisma.subscription, (state.subscriptions || []).map(toDbSub), "id");
   console.log("DBP6: persisting matches");
-  await safeUpsert(prisma.match, state.matches, "id");
+  await safeUpsert(prisma.match, (state.matches || []).map(toDbMatch), "id");
   console.log("DBP7: persisting trips");
   await safeUpsert(prisma.trip, state.trips, "id");
   console.log("DBP8: persisting hostActivityDays");
@@ -530,7 +547,7 @@ async function seedDatabase(defaults: any): Promise<void> {
   if (defaults.rides?.length) await safeUpsert(prisma.ride, defaults.rides, "id");
   if (defaults.requests?.length) await safeUpsert(prisma.rideRequest, defaults.requests, "id");
   if (defaults.subscriptions?.length) await safeUpsert(prisma.subscription, defaults.subscriptions.map(toDbSub), "id");
-  if (defaults.matches?.length) await safeUpsert(prisma.match, defaults.matches, "id");
+  if (defaults.matches?.length) await safeUpsert(prisma.match, defaults.matches.map(toDbMatch), "id");
   if (defaults.trips?.length) await safeUpsert(prisma.trip, defaults.trips, "id");
   if (defaults.hostActivityDays?.length) await safeUpsert(prisma.hostActivityDay, defaults.hostActivityDays, "id");
   if (defaults.payments?.length) await safeUpsert(prisma.payment, defaults.payments.map(toDbPayment), "id");
